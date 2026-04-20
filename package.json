@@ -1,0 +1,22 @@
+{
+  "name": "formation-k8s-slides",
+  "type": "module",
+  "private": true,
+  "packageManager": "pnpm@9.12.3",
+  "scripts": {
+    "dev": "slidev --open",
+    "build": "slidev build --base /${REPO_NAME:-formation-k8s-slides}/ --out dist",
+    "export": "slidev export",
+    "encrypt": "rm -rf dist-protected && mkdir -p dist-protected && cp -r dist/. dist-protected/ && staticrypt dist/index.html --short --password \"$STATICRYPT_PASSPHRASE\" --template-title \"Formation Kubernetes\" --template-instructions \"Saisissez la passphrase communiquée par le formateur.\" --template-button \"Accéder au cours\" -d dist-protected",
+    "build:protected": "pnpm run build && pnpm run encrypt"
+  },
+  "dependencies": {
+    "@slidev/cli": "^0.50.0",
+    "@slidev/theme-default": "latest",
+    "@slidev/theme-seriph": "latest",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "staticrypt": "^3.0.0"
+  }
+}
