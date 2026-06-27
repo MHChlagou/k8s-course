@@ -35,8 +35,14 @@ Modifier `slides.md` → hot-reload automatique.
 export REPO_NAME="formation-k8s-slides"
 export STATICRYPT_PASSPHRASE="ma-passphrase-test"
 pnpm build:protected
-pnpm dlx serve dist-protected   # teste le résultat sur http://localhost:3000
+pnpm serve:protected            # teste le résultat sur http://localhost:3000/formation-k8s-slides/
 ```
+
+> ⚠️ Le build est compilé avec un **base path** (`--base /formation-k8s-slides/`) pour
+> GitHub Pages. Servir `dist-protected` directement depuis la racine renvoie des **404**
+> sur les assets (`/formation-k8s-slides/assets/...` n'existe pas à la racine). Le script
+> `serve:protected` recopie le build sous ce sous-chemin ; ouvrez donc bien l'URL avec le
+> suffixe `/formation-k8s-slides/`.
 
 ---
 
@@ -113,3 +119,4 @@ presentation/
 ```
 
 Source pédagogique (référence) : `../formation-kubernetes.md`.
+

@@ -268,3 +268,13 @@
 .slidev-layout .mermaid svg {
   max-height: 68vh;
 }
+
+/* ---------- Correctif : dialogue "aller à une slide" (touche g) ----------
+   Fermé, Slidev masque ce dialogue en le décalant hors écran (top: -80px),
+   mais sa liste d'autocomplétion s'étend vers le bas et déborde par-dessus
+   le contenu des slides. On le masque tant qu'il n'a pas le focus ; la
+   touche g le rouvre normalement (:focus-within réactive l'affichage). */
+#slidev-goto-dialog:not(:focus-within) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

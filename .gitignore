@@ -1,6 +1,8 @@
 node_modules
 dist
 dist-protected
+dist-serve
+.staticrypt.json
 .slidev
 *.log
 .DS_Store

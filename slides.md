@@ -27,9 +27,9 @@ TODO cover slide: remplacer les valeurs ci-dessous (nom, contact, session).
 <p class="cover-tagline">Workloads Batch & Troubleshooting</p>
 
 <div class="cover-meta">
-  <span class="label">Formateur</span><span><strong>Jean Dupont</strong></span>
-  <span class="label">Contact</span><code>jean.dupont@example.com</code>
-  <span class="label">Session</span><span>Avril 2026 · Paris</span>
+  <span class="label">Formateur</span><span><strong>Mohamed Hedi CHLAGOU</strong></span>
+  <span class="label">Contact</span><code>chlagoumedhedi@outlook.com</code>
+  <span class="label">Session</span><span>29 &amp; 30 Juin 2026</span>
   <span class="label">Durée</span><span>2 jours (14h)</span>
 </div>
 
@@ -325,11 +325,177 @@ const quizM1 = [
       { t: 'kube-apiserver, via HTTPS', ok: true }
     ],
     explain: 'L\'apiserver est le point d\'entrée unique du cluster. Toutes les actions passent par lui.'
+  },
+  {
+    q: 'Sur un worker node, quel composant lance et surveille réellement les conteneurs ?',
+    choices: [
+      { t: 'kube-scheduler' },
+      { t: 'kubelet', ok: true },
+      { t: 'kube-controller-manager' },
+      { t: 'etcd' }
+    ],
+    explain: 'Le kubelet est l\'agent présent sur chaque nœud : il reçoit les specs de Pods et pilote le runtime pour démarrer et surveiller les conteneurs.'
+  },
+  {
+    q: 'Quel rôle joue etcd dans un cluster Kubernetes ?',
+    choices: [
+      { t: 'Exécuter les conteneurs' },
+      { t: 'Stocker l\'état du cluster sous forme clé-valeur', ok: true },
+      { t: 'Router le trafic réseau entre Pods' },
+      { t: 'Distribuer les images de conteneurs' }
+    ],
+    explain: 'etcd est la base clé-valeur qui conserve TOUT l\'état du cluster. Sa sauvegarde est critique : la perdre, c\'est perdre le cluster.'
+  },
+  {
+    q: 'Vous supprimez à la main un Pod géré par un contrôleur. Que fait Kubernetes ?',
+    choices: [
+      { t: 'Rien, le Pod reste supprimé' },
+      { t: 'Il recrée un Pod pour revenir à l\'état désiré', ok: true },
+      { t: 'Il met le cluster en erreur' },
+      { t: 'Il attend une validation manuelle' }
+    ],
+    explain: 'C\'est la boucle de réconciliation : le contrôleur compare en continu réel et désiré, et recrée ce qui manque. C\'est le « self-healing ».'
+  },
+  {
+    q: 'Quelle est la plus petite unité déployable en Kubernetes ?',
+    choices: [
+      { t: 'Le conteneur' },
+      { t: 'Le Pod', ok: true },
+      { t: 'Le nœud' },
+      { t: 'Le Deployment' }
+    ],
+    explain: 'On ne déploie jamais un conteneur seul : il est toujours encapsulé dans un Pod, qui est l\'unité de planification de base.'
+  },
+  {
+    q: 'Pourquoi utiliser un orchestrateur comme Kubernetes plutôt que de lancer ses conteneurs à la main ?',
+    choices: [
+      { t: 'Pour rendre les conteneurs plus rapides' },
+      { t: 'Pour automatiser placement, redémarrage, montée en charge et résilience', ok: true },
+      { t: 'Parce que Docker est obsolète' },
+      { t: 'Pour supprimer le besoin de serveurs' }
+    ],
+    explain: 'À l\'échelle, gérer manuellement le placement, les pannes et le scaling devient impossible. L\'orchestrateur industrialise tout cela.'
   }
 ]
 </script>
 
 <Quiz :questions="quizM1" />
+
+---
+layout: default
+---
+
+# 1.7 Mise en place du cluster (kind)
+
+`kind` lance un cluster Kubernetes **dans des conteneurs Docker** : jetable, reproductible, identique pour tous. C'est l'environnement de **tous les TP**.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+**Prérequis** : `docker`, `kind` (≥ 0.20) et `kubectl` installés.
+
+**1. Décrire le cluster** — `kind-config.yaml`
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: formation
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker
+```
+
+**2. Créer, puis vérifier**
+
+```bash
+kind create cluster --config kind-config.yaml
+kubectl get nodes          # 3 nœuds Ready
+```
+
+</div>
+<div>
+
+<div class="callout-k8s text-sm">
+
+**Pourquoi 3 nœuds ?**
+
+1 control-plane + 2 workers : on voit le **scheduler** répartir les Pods, au plus proche d'un vrai cluster.
+
+</div>
+
+<div class="callout-ok text-sm pt-3">
+
+**StorageClass `standard`** fournie d'office → les PVC des TP fonctionnent sans rien installer.
+
+</div>
+
+<div class="callout-warn text-sm pt-3">
+
+Image locale → la charger sur les nœuds :
+`kind load docker-image <img> --name formation`
+
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 1.8 Préparer le cluster pour les TP
+
+Un **namespace de travail** dédié (et, en option, les métriques). À faire **une seule fois** après la création du cluster.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+**Namespace `formation` par défaut**
+
+```bash
+kubectl create namespace formation
+kubectl config set-context --current \
+  --namespace=formation
+```
+
+**Métriques — optionnel, pour `kubectl top`**
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/\
+metrics-server/releases/latest/download/components.yaml
+
+# kind : autoriser le kubelet en TLS non vérifié
+kubectl -n kube-system patch deploy metrics-server \
+  --type=json -p='[{"op":"add",
+  "path":"/spec/template/spec/containers/0/args/-",
+  "value":"--kubelet-insecure-tls"}]'
+```
+
+</div>
+<div>
+
+<div class="callout-k8s text-sm">
+
+**Vérifier que tout est prêt**
+
+- `kubectl get nodes` → 3 `Ready`
+- `kubectl get ns formation`
+- `kubectl top nodes` (si metrics-server)
+
+</div>
+
+<div class="callout-warn text-sm pt-3">
+
+**Fin de formation** — tout jeter :
+`kind delete cluster --name formation`
+
+`metrics-server` met ~1 min ; sans lui, `kubectl top` renvoie une erreur : c'est **normal**.
+
+</div>
+
+</div>
+</div>
 
 ---
 layout: center
@@ -624,6 +790,66 @@ const quizM2 = [
       { t: 'kubectl get -n=* pods' }
     ],
     explain: '-A est le raccourci de --all-namespaces, très utile en exploitation.'
+  },
+  {
+    q: 'Quelle option de kubectl get pods affiche le nœud et l\'IP de chaque Pod ?',
+    choices: [
+      { t: '-o yaml' },
+      { t: '-o wide', ok: true },
+      { t: '--verbose' },
+      { t: '-o nodes' }
+    ],
+    explain: '-o wide ajoute des colonnes (NODE, IP...) sans basculer en YAML complet. Idéal pour un coup d\'œil rapide en exploitation.'
+  },
+  {
+    q: 'Par défaut, dans quel namespace s\'exécute une commande kubectl sans option -n ?',
+    choices: [
+      { t: 'kube-system' },
+      { t: 'default', ok: true },
+      { t: 'le dernier namespace créé' },
+      { t: 'tous les namespaces' }
+    ],
+    explain: 'Sans -n ni contexte particulier, kubectl cible le namespace default. On peut changer ce défaut avec kubectl config set-context.'
+  },
+  {
+    q: 'Comment supprimer tous les objets décrits dans un fichier mon-app.yaml ?',
+    choices: [
+      { t: 'kubectl remove -f mon-app.yaml' },
+      { t: 'kubectl delete -f mon-app.yaml', ok: true },
+      { t: 'kubectl apply --delete mon-app.yaml' },
+      { t: 'kubectl destroy mon-app.yaml' }
+    ],
+    explain: 'delete -f lit le même fichier que apply et supprime exactement les objets qu\'il déclare. Pratique pour un cleanup propre.'
+  },
+  {
+    q: 'Comment générer le YAML d\'un Pod sans réellement le créer dans le cluster ?',
+    choices: [
+      { t: 'kubectl run nginx --image=nginx --dry-run=client -o yaml', ok: true },
+      { t: 'kubectl run nginx --image=nginx --preview' },
+      { t: 'kubectl create pod nginx --fake' },
+      { t: 'kubectl get pod nginx -o yaml' }
+    ],
+    explain: '--dry-run=client construit l\'objet localement et -o yaml l\'imprime : la méthode reine pour générer un squelette de manifeste.'
+  },
+  {
+    q: 'Vous jonglez entre un cluster de dev et un de prod. Quelle commande change de cluster actif ?',
+    choices: [
+      { t: 'kubectl switch prod' },
+      { t: 'kubectl config use-context prod', ok: true },
+      { t: 'kubectl set cluster prod' },
+      { t: 'kubectl context prod' }
+    ],
+    explain: 'Un contexte associe cluster + user + namespace. use-context bascule l\'ensemble en une commande.'
+  },
+  {
+    q: 'Quelle option suit en direct (streaming) les logs d\'un Pod ?',
+    choices: [
+      { t: 'kubectl logs mon-pod --tail' },
+      { t: 'kubectl logs mon-pod --watch' },
+      { t: 'kubectl logs -f mon-pod', ok: true },
+      { t: 'kubectl logs mon-pod --stream' }
+    ],
+    explain: '-f (follow) garde la sortie ouverte et affiche les nouvelles lignes en continu, comme tail -f.'
   }
 ]
 </script>
@@ -1083,6 +1309,66 @@ const quizM3 = [
       { t: 'Done' }
     ],
     explain: 'Succeeded = phase officielle. Completed est affiché par kubectl get mais la valeur status.phase est Succeeded.'
+  },
+  {
+    q: 'Deux conteneurs dans le même Pod : comment communiquent-ils le plus simplement ?',
+    choices: [
+      { t: 'Via le Service du Pod' },
+      { t: 'Via localhost et un port partagé', ok: true },
+      { t: 'Via l\'IP publique du nœud' },
+      { t: 'Ils ne peuvent pas communiquer' }
+    ],
+    explain: 'Les conteneurs d\'un Pod partagent la même interface réseau : ils se joignent sur localhost:port. C\'est la base du pattern sidecar.'
+  },
+  {
+    q: 'À quoi sert un initContainer ?',
+    choices: [
+      { t: 'Accélérer le démarrage du conteneur principal' },
+      { t: 'Exécuter une tâche préalable qui doit réussir avant les conteneurs applicatifs', ok: true },
+      { t: 'Redémarrer le Pod en cas de crash' },
+      { t: 'Servir de conteneur de secours' }
+    ],
+    explain: 'Les initContainers s\'exécutent séquentiellement jusqu\'au succès avant que les conteneurs normaux démarrent : parfait pour attendre une dépendance ou préparer un volume.'
+  },
+  {
+    q: 'Une liveness probe qui échoue de façon répétée provoque quoi ?',
+    choices: [
+      { t: 'La suppression définitive du Pod' },
+      { t: 'Le redémarrage du conteneur', ok: true },
+      { t: 'Le retrait du Pod des Endpoints du Service' },
+      { t: 'Rien, c\'est purement informatif' }
+    ],
+    explain: 'La liveness probe vérifie que le process est vivant : en cas d\'échec, kubelet redémarre le conteneur. La readiness, elle, agit sur le routage du Service.'
+  },
+  {
+    q: 'Que devient l\'adresse IP d\'un Pod après sa recréation ?',
+    choices: [
+      { t: 'Elle est conservée' },
+      { t: 'Elle change', ok: true },
+      { t: 'Elle devient publique' },
+      { t: 'Elle passe à 127.0.0.1' }
+    ],
+    explain: 'Une IP de Pod est éphémère : chaque recréation en attribue une nouvelle. C\'est précisément pourquoi on s\'adresse à un Service, pas à un Pod.'
+  },
+  {
+    q: 'Que contrôle une readiness probe ?',
+    choices: [
+      { t: 'Si le conteneur doit être redémarré' },
+      { t: 'Si le Pod est prêt à recevoir du trafic', ok: true },
+      { t: 'Si l\'image est à jour' },
+      { t: 'Si le nœud a assez de mémoire' }
+    ],
+    explain: 'Tant que la readiness échoue, le Pod est retiré des Endpoints du Service : aucune requête ne lui est envoyée, sans pour autant le redémarrer.'
+  },
+  {
+    q: 'Pour un Pod de traitement batch ponctuel, quelle restartPolicy est adaptée ?',
+    choices: [
+      { t: 'Always' },
+      { t: 'OnFailure ou Never', ok: true },
+      { t: 'Reboot' },
+      { t: 'Manual' }
+    ],
+    explain: 'Always relancerait le batch même après un exit 0. OnFailure (relance si échec) ou Never correspondent à une tâche qui doit se terminer.'
   }
 ]
 </script>
@@ -1408,7 +1694,7 @@ spec:
 **Actions**
 
 ```bash
-kubectl apply -f pod.yaml
+kubectl apply -f pod-mauvaise-image.yaml
 kubectl get pod pod-mauvaise-image
 # STATUS: ErrImagePull
 #      → ImagePullBackOff
@@ -1555,6 +1841,76 @@ const quizM4 = [
       { t: 'Seulement si restartPolicy=Always' }
     ],
     explain: 'exec n\'attache qu\'à un processus vivant. Un Pod Succeeded n\'a plus de processus actif. Solution : recréer un Pod en sleep pour investiguer.'
+  },
+  {
+    q: 'Un Pod a deux conteneurs. Comment lire les logs du conteneur "sidecar" précisément ?',
+    choices: [
+      { t: 'kubectl logs mon-pod' },
+      { t: 'kubectl logs mon-pod -c sidecar', ok: true },
+      { t: 'kubectl logs mon-pod/sidecar' },
+      { t: 'kubectl logs --all mon-pod' }
+    ],
+    explain: 'Sur un Pod multi-conteneurs, kubectl logs exige -c <conteneur>, sinon il prend le premier conteneur (ou renvoie une erreur).'
+  },
+  {
+    q: 'Quelle commande liste les événements du namespace, triés du plus ancien au plus récent ?',
+    choices: [
+      { t: 'kubectl get events --sort-by=.lastTimestamp', ok: true },
+      { t: 'kubectl events --recent' },
+      { t: 'kubectl describe events' },
+      { t: 'kubectl logs events' }
+    ],
+    explain: 'Les Events ne sont pas triés par défaut. --sort-by=.lastTimestamp donne une chronologie lisible, précieuse pour reconstituer un incident.'
+  },
+  {
+    q: 'Votre image applicative ne contient aucun shell ni outil réseau. Comment investiguer dedans ?',
+    choices: [
+      { t: 'kubectl exec -it mon-pod -- bash' },
+      { t: 'kubectl debug avec un conteneur éphémère', ok: true },
+      { t: 'kubectl ssh mon-pod' },
+      { t: 'Reconstruire l\'image en urgence' }
+    ],
+    explain: 'kubectl debug injecte un conteneur éphémère (avec vos outils) dans le Pod en cours, partageant ses namespaces. Idéal pour les images « distroless ».'
+  },
+  {
+    q: 'Comment récupérer un fichier de rapport généré dans un conteneur vers votre poste ?',
+    choices: [
+      { t: 'kubectl download mon-pod:/data/report.csv .' },
+      { t: 'kubectl cp mon-pod:/data/report.csv ./report.csv', ok: true },
+      { t: 'kubectl get file mon-pod /data/report.csv' },
+      { t: 'kubectl exec mon-pod -- send report.csv' }
+    ],
+    explain: 'kubectl cp copie dans les deux sens entre le Pod et votre machine (nécessite tar dans le conteneur).'
+  },
+  {
+    q: 'Quelle commande montre la consommation CPU/mémoire réelle des Pods ?',
+    choices: [
+      { t: 'kubectl stats pods' },
+      { t: 'kubectl top pods', ok: true },
+      { t: 'kubectl usage pods' },
+      { t: 'kubectl describe pods --metrics' }
+    ],
+    explain: 'kubectl top affiche la conso réelle, à condition que metrics-server soit installé. Sans lui, la commande renvoie une erreur.'
+  },
+  {
+    q: 'Un conteneur bavard tourne depuis des heures. Comment ne voir que les 50 dernières lignes ?',
+    choices: [
+      { t: 'kubectl logs mon-pod --last=50' },
+      { t: 'kubectl logs mon-pod --tail=50', ok: true },
+      { t: 'kubectl logs mon-pod --limit 50' },
+      { t: 'kubectl logs mon-pod --recent 50' }
+    ],
+    explain: '--tail=N borne la sortie aux N dernières lignes. --since=10m filtre par fenêtre de temps. Les deux sont combinables.'
+  },
+  {
+    q: 'Pour inspecter status.containerStatuses (raison d\'un redémarrage) d\'un Pod, on utilise :',
+    choices: [
+      { t: 'kubectl logs mon-pod' },
+      { t: 'kubectl get pod mon-pod -o yaml', ok: true },
+      { t: 'kubectl top pod mon-pod' },
+      { t: 'kubectl cp mon-pod status' }
+    ],
+    explain: 'Le YAML complet expose status.containerStatuses[].lastState : code de sortie et raison (OOMKilled, Error...). describe en montre une synthèse.'
   }
 ]
 </script>
@@ -2029,6 +2385,66 @@ const quizM5 = [
       { t: 'Archive les objets pour restauration' }
     ],
     explain: 'Opération destructive en cascade. Très utile pour un cleanup complet, très dangereuse en production.'
+  },
+  {
+    q: 'Quel type de Service expose une application en interne au cluster uniquement ?',
+    choices: [
+      { t: 'NodePort' },
+      { t: 'LoadBalancer' },
+      { t: 'ClusterIP', ok: true },
+      { t: 'ExternalName' }
+    ],
+    explain: 'ClusterIP (le défaut) ne donne qu\'une IP interne. NodePort et LoadBalancer ajoutent une exposition externe par-dessus.'
+  },
+  {
+    q: 'Quel nom DNS joint le Service "api" du namespace "prod" depuis un autre namespace ?',
+    choices: [
+      { t: 'api' },
+      { t: 'api.prod' },
+      { t: 'api.prod.svc.cluster.local', ok: true },
+      { t: 'prod.api.cluster' }
+    ],
+    explain: 'Forme complète : <service>.<namespace>.svc.cluster.local. Dans le même namespace, le nom court « api » suffit.'
+  },
+  {
+    q: 'Vous voulez tester un Service depuis l\'extérieur sans load balancer cloud. Quel type choisir ?',
+    choices: [
+      { t: 'ClusterIP' },
+      { t: 'NodePort', ok: true },
+      { t: 'Headless' },
+      { t: 'ExternalName' }
+    ],
+    explain: 'NodePort ouvre un port (30000-32767) sur chaque nœud et y route le trafic. Simple pour du test ; LoadBalancer est préféré en prod cloud.'
+  },
+  {
+    q: 'Quelle est la bonne distinction entre labels et annotations ?',
+    choices: [
+      { t: 'Aucune, ce sont des synonymes' },
+      { t: 'Les labels servent à sélectionner/filtrer, les annotations stockent des métadonnées non requêtables', ok: true },
+      { t: 'Les annotations sont indexées, pas les labels' },
+      { t: 'Les labels sont réservés au control plane' }
+    ],
+    explain: 'Les selectors fonctionnent sur les labels. Les annotations portent des infos descriptives (contact, outillage, checksum) sans servir au filtrage.'
+  },
+  {
+    q: 'Les namespaces isolent-ils le réseau entre Pods par défaut ?',
+    choices: [
+      { t: 'Oui, totalement' },
+      { t: 'Non : par défaut tous les Pods peuvent se joindre, quel que soit le namespace', ok: true },
+      { t: 'Oui, sauf le namespace default' },
+      { t: 'Seulement si on active etcd' }
+    ],
+    explain: 'Un namespace est un cloisonnement logique (noms, quotas, RBAC), PAS un pare-feu. Pour isoler le réseau, il faut des NetworkPolicies.'
+  },
+  {
+    q: 'Dans un Service, à quoi correspond targetPort ?',
+    choices: [
+      { t: 'Le port exposé par le Service' },
+      { t: 'Le port sur lequel écoute le conteneur du Pod', ok: true },
+      { t: 'Le port du nœud' },
+      { t: 'Le port de kube-proxy' }
+    ],
+    explain: 'port = le port du Service (côté client) ; targetPort = le port réel du conteneur destinataire. kube-proxy fait la traduction.'
   }
 ]
 </script>
@@ -2663,6 +3079,66 @@ const quizM6 = [
       { t: 'Le Job est automatiquement dupliqué' }
     ],
     explain: 'backoffLimit plafonne le nombre total de tentatives ratées. Au-delà, le Job est déclaré Failed définitivement.'
+  },
+  {
+    q: 'Quelle restartPolicy un Pod de Job accepte-t-il ?',
+    choices: [
+      { t: 'Always' },
+      { t: 'OnFailure ou Never uniquement', ok: true },
+      { t: 'N\'importe laquelle' },
+      { t: 'Reboot' }
+    ],
+    explain: 'Un Job interdit Always (sinon le Pod ne « terminerait » jamais). Seuls OnFailure et Never sont valides.'
+  },
+  {
+    q: 'Quel champ supprime automatiquement un Job (et ses Pods) un certain temps après sa fin ?',
+    choices: [
+      { t: 'autoDelete: true' },
+      { t: 'ttlSecondsAfterFinished', ok: true },
+      { t: 'cleanupPolicy: Auto' },
+      { t: 'expireAfter' }
+    ],
+    explain: 'ttlSecondsAfterFinished: 3600 efface le Job une heure après sa complétion, évitant l\'accumulation d\'objets terminés.'
+  },
+  {
+    q: 'Comment garantir qu\'un Job ne tourne jamais plus de 10 minutes, même s\'il se relance ?',
+    choices: [
+      { t: 'backoffLimit: 10' },
+      { t: 'activeDeadlineSeconds: 600', ok: true },
+      { t: 'timeout: 10m' },
+      { t: 'completions: 600' }
+    ],
+    explain: 'activeDeadlineSeconds plafonne la durée TOTALE du Job (toutes tentatives confondues). Au-delà, il est arrêté et marqué Failed.'
+  },
+  {
+    q: 'Un Job sans completions ni parallelism explicites se comporte comment ?',
+    choices: [
+      { t: 'Il échoue à la création' },
+      { t: 'Il lance un seul Pod et réussit dès que ce Pod réussit', ok: true },
+      { t: 'Il boucle à l\'infini' },
+      { t: 'Il lance autant de Pods que de nœuds' }
+    ],
+    explain: 'Par défaut completions=1 et parallelism=1 : un Job « simple », un seul Pod, succès = une réussite.'
+  },
+  {
+    q: 'Quelle est la différence clé entre un Job et un Deployment ?',
+    choices: [
+      { t: 'Le Job tourne en continu, le Deployment se termine' },
+      { t: 'Le Job exécute une tâche jusqu\'à complétion, le Deployment maintient des Pods en permanence', ok: true },
+      { t: 'Aucune, ce sont des alias' },
+      { t: 'Le Deployment ne gère qu\'un seul Pod' }
+    ],
+    explain: 'Job = travail fini (batch). Deployment = service longue durée qu\'on garde toujours en vie. Choisir le bon objet selon la nature de la charge.'
+  },
+  {
+    q: 'Comment mettre temporairement un Job en pause sans le supprimer ?',
+    choices: [
+      { t: 'kubectl pause job' },
+      { t: 'Passer spec.suspend à true', ok: true },
+      { t: 'Mettre parallelism à 0' },
+      { t: 'Supprimer ses Pods un par un' }
+    ],
+    explain: 'spec.suspend: true stoppe la création de nouveaux Pods (et termine les actifs). Le repasser à false reprend l\'exécution.'
   }
 ]
 </script>
@@ -3086,6 +3562,66 @@ const quizM7 = [
       { t: 'Pour respecter un quota Kubernetes' }
     ],
     explain: 'Les Jobs ne se nettoient pas seuls. Sans limite, vous vous retrouvez avec des centaines d\'objets inutiles. Défaut raisonnable : 3.'
+  },
+  {
+    q: 'Combien de champs compose une expression cron standard et dans quel ordre ?',
+    choices: [
+      { t: '4 : heure minute jour mois' },
+      { t: '5 : minute heure jour-du-mois mois jour-de-semaine', ok: true },
+      { t: '6 : avec les secondes' },
+      { t: '5 : seconde minute heure jour mois' }
+    ],
+    explain: 'Cinq champs : minute, heure, jour du mois, mois, jour de la semaine. Kubernetes n\'utilise pas de champ « secondes ».'
+  },
+  {
+    q: 'Quelle expression déclenche un CronJob toutes les 5 minutes ?',
+    choices: [
+      { t: '5 * * * *' },
+      { t: '*/5 * * * *', ok: true },
+      { t: '0/5 * * *' },
+      { t: '* */5 * * *' }
+    ],
+    explain: '*/5 dans le champ minute = « toutes les 5 minutes ». « 5 * * * * » ne tournerait qu\'à la minute 5 de chaque heure.'
+  },
+  {
+    q: 'Selon quel fuseau horaire un CronJob évalue-t-il son schedule par défaut ?',
+    choices: [
+      { t: 'Le fuseau de votre poste' },
+      { t: 'UTC (sauf champ spec.timeZone)', ok: true },
+      { t: 'Europe/Paris' },
+      { t: 'Celui du namespace' }
+    ],
+    explain: 'Historiquement le schedule est évalué en UTC. Le champ spec.timeZone permet désormais de fixer un fuseau explicite.'
+  },
+  {
+    q: 'Le contrôleur était indisponible à l\'heure prévue. Quel champ évite de lancer un run trop en retard ?',
+    choices: [
+      { t: 'latePolicy' },
+      { t: 'startingDeadlineSeconds', ok: true },
+      { t: 'graceWindow' },
+      { t: 'retryDeadline' }
+    ],
+    explain: 'startingDeadlineSeconds borne le retard toléré : passé ce délai, l\'exécution manquée est abandonnée plutôt que rattrapée tardivement.'
+  },
+  {
+    q: 'Avec concurrencyPolicy: Replace, que fait Kubernetes si l\'exécution précédente tourne encore ?',
+    choices: [
+      { t: 'Il saute la nouvelle' },
+      { t: 'Il tue l\'exécution en cours et lance la nouvelle', ok: true },
+      { t: 'Il lance les deux en parallèle' },
+      { t: 'Il met le CronJob en erreur' }
+    ],
+    explain: 'Replace privilégie la donnée fraîche : l\'ancien run est tué au profit du nouveau. Forbid ferait l\'inverse (sauter le nouveau).'
+  },
+  {
+    q: 'Quelle est la chaîne d\'objets créés par un CronJob ?',
+    choices: [
+      { t: 'CronJob → Pod directement' },
+      { t: 'CronJob → Job → Pod', ok: true },
+      { t: 'CronJob → Deployment → Pod' },
+      { t: 'CronJob → ReplicaSet → Pod' }
+    ],
+    explain: 'À chaque déclenchement, le CronJob crée un Job, qui crée un (ou plusieurs) Pod(s). Comprendre cette cascade aide à débugger.'
   }
 ]
 </script>
@@ -3502,6 +4038,76 @@ const quizM8 = [
       { t: 'volumes avec mountPath spécial' }
     ],
     explain: 'envFrom injecte en masse. env + valueFrom.configMapKeyRef cible UNE clé précise (plus lourd en syntaxe).'
+  },
+  {
+    q: 'Un ConfigMap monté en VOLUME est modifié. Les Pods voient-ils le changement sans redémarrer ?',
+    choices: [
+      { t: 'Non, jamais' },
+      { t: 'Oui, les fichiers montés sont mis à jour automatiquement (avec un léger délai)', ok: true },
+      { t: 'Seulement les Secrets' },
+      { t: 'Uniquement après un rollout restart' }
+    ],
+    explain: 'Contrairement aux variables d\'env (figées au démarrage), un ConfigMap monté en volume se rafraîchit tout seul. À l\'appli de relire le fichier.'
+  },
+  {
+    q: 'Quelle commande crée un ConfigMap avec la clé LOG_LEVEL=debug en une ligne ?',
+    choices: [
+      { t: 'kubectl create configmap cfg --data LOG_LEVEL=debug' },
+      { t: 'kubectl create configmap cfg --from-literal=LOG_LEVEL=debug', ok: true },
+      { t: 'kubectl set configmap cfg LOG_LEVEL=debug' },
+      { t: 'kubectl configmap cfg add LOG_LEVEL debug' }
+    ],
+    explain: '--from-literal=clé=valeur injecte une paire en ligne. --from-file=chemin charge un fichier entier comme valeur.'
+  },
+  {
+    q: 'Pour tirer une image depuis un registre privé, quel type de Secret crée-t-on ?',
+    choices: [
+      { t: 'Opaque' },
+      { t: 'docker-registry (kubernetes.io/dockerconfigjson)', ok: true },
+      { t: 'tls' },
+      { t: 'service-account-token' }
+    ],
+    explain: 'Un Secret de type docker-registry stocke les identifiants du registre, référencé via imagePullSecrets dans le Pod ou le ServiceAccount.'
+  },
+  {
+    q: 'Quelle est la taille maximale (approximative) d\'un ConfigMap ou d\'un Secret ?',
+    choices: [
+      { t: '64 Ko' },
+      { t: '1 Mo', ok: true },
+      { t: '100 Mo' },
+      { t: 'Illimitée' }
+    ],
+    explain: 'La limite est ~1 Mo (contrainte etcd). Pour de gros fichiers, on passe par un volume (PVC) plutôt qu\'un ConfigMap.'
+  },
+  {
+    q: 'Vous montez un Secret en volume. Comment l\'appli accède-t-elle à la valeur de la clé "password" ?',
+    choices: [
+      { t: 'Dans la variable d\'env $password' },
+      { t: 'En lisant le fichier <mountPath>/password', ok: true },
+      { t: 'Via l\'API Kubernetes' },
+      { t: 'Dans les logs du Pod' }
+    ],
+    explain: 'Chaque clé du Secret devient un fichier dont le contenu est la valeur (déjà décodée). L\'appli lit simplement le fichier.'
+  },
+  {
+    q: 'Comment injecter UNE seule clé d\'un Secret comme variable d\'environnement ?',
+    choices: [
+      { t: 'envFrom.secretRef' },
+      { t: 'env avec valueFrom.secretKeyRef', ok: true },
+      { t: 'secretMount.key' },
+      { t: 'env.secretAll' }
+    ],
+    explain: 'valueFrom.secretKeyRef cible une clé précise (name + key). envFrom, lui, injecte TOUT le Secret d\'un coup.'
+  },
+  {
+    q: 'À quoi sert de déclarer immutable: true sur un ConfigMap ?',
+    choices: [
+      { t: 'À chiffrer son contenu' },
+      { t: 'À empêcher toute modification et alléger la charge sur l\'apiserver', ok: true },
+      { t: 'À le rendre partageable entre namespaces' },
+      { t: 'À le supprimer après usage' }
+    ],
+    explain: 'Un ConfigMap/Secret immuable ne peut plus être modifié (il faut le recréer). Bénéfice : l\'apiserver n\'a plus à le surveiller, d\'où un gain de performance.'
   }
 ]
 </script>
@@ -3806,6 +4412,76 @@ const quizM9 = [
       { t: 'Changer d\'accessMode' }
     ],
     explain: 'WaitForFirstConsumer est une optimisation standard : le scheduler attend de savoir sur quel nœud le Pod va tourner avant de provisionner le volume.'
+  },
+  {
+    q: 'Quelle est la relation entre PersistentVolume (PV) et PersistentVolumeClaim (PVC) ?',
+    choices: [
+      { t: 'Le PVC est le stockage réel, le PV la demande' },
+      { t: 'Le PV est le stockage réel, le PVC la demande qui s\'y lie', ok: true },
+      { t: 'Ce sont deux noms du même objet' },
+      { t: 'Le PV vit dans le Pod, le PVC dans le nœud' }
+    ],
+    explain: 'Le PVC (demande) se « bind » à un PV (ressource réelle). Le Pod référence le PVC, jamais le PV : séparation des rôles dev/infra.'
+  },
+  {
+    q: 'Un volume en ReadWriteOnce (RWO) peut être monté en écriture par :',
+    choices: [
+      { t: 'Tous les Pods du cluster' },
+      { t: 'Un seul nœud à la fois', ok: true },
+      { t: 'Exactement un Pod, jamais plus' },
+      { t: 'Aucun Pod, lecture seule' }
+    ],
+    explain: 'RWO = montable en lecture-écriture par un seul NŒUD (plusieurs Pods d\'un même nœud peuvent partager). RWX autorise plusieurs nœuds.'
+  },
+  {
+    q: 'À quoi sert une StorageClass ?',
+    choices: [
+      { t: 'À chiffrer les volumes' },
+      { t: 'À provisionner dynamiquement des PV à la demande selon un type de stockage', ok: true },
+      { t: 'À limiter la taille des Pods' },
+      { t: 'À sauvegarder etcd' }
+    ],
+    explain: 'La StorageClass décrit un provisionneur et des paramètres (SSD, HDD, IOPS...). Un PVC qui la référence déclenche la création automatique du PV.'
+  },
+  {
+    q: 'Avec persistentVolumeReclaimPolicy: Delete, que devient le stockage quand on supprime le PVC ?',
+    choices: [
+      { t: 'Il est conservé pour réutilisation' },
+      { t: 'Le volume sous-jacent est supprimé', ok: true },
+      { t: 'Il est archivé 30 jours' },
+      { t: 'Rien, le PVC ne peut pas être supprimé' }
+    ],
+    explain: 'Delete efface aussi le volume réel (perte de données !). Retain le conserve pour récupération manuelle. Choix critique en production.'
+  },
+  {
+    q: 'Pourquoi éviter hostPath en production ?',
+    choices: [
+      { t: 'C\'est trop lent' },
+      { t: 'Les données sont liées à un nœud précis et perdues si le Pod migre ailleurs', ok: true },
+      { t: 'Ce n\'est pas supporté par kubelet' },
+      { t: 'Cela chiffre les données malgré soi' }
+    ],
+    explain: 'hostPath monte un répertoire du nœud : si le Pod est replanifié ailleurs, il ne retrouve pas ses données. Réservé à des cas très spécifiques.'
+  },
+  {
+    q: 'Quand le contenu d\'un volume emptyDir est-il effacé ?',
+    choices: [
+      { t: 'À chaque redémarrage de conteneur' },
+      { t: 'À la suppression du Pod', ok: true },
+      { t: 'Jamais, il est persistant' },
+      { t: 'Toutes les 24h' }
+    ],
+    explain: 'emptyDir vit aussi longtemps que le Pod : il survit aux redémarrages de conteneur, mais disparaît quand le Pod est supprimé.'
+  },
+  {
+    q: 'Le provisionnement « dynamique » d\'un volume signifie :',
+    choices: [
+      { t: 'Un admin crée le PV à la main à l\'avance' },
+      { t: 'Le PV est créé automatiquement quand un PVC le réclame, via une StorageClass', ok: true },
+      { t: 'Le volume change de taille tout seul' },
+      { t: 'Le volume est monté en RAM' }
+    ],
+    explain: 'Dynamique = à la demande (StorageClass). Statique = un admin pré-crée les PV. Le dynamique est la norme dans le cloud.'
   }
 ]
 </script>
@@ -4251,6 +4927,66 @@ const quizM10 = [
       { t: 'La version de kubectl' }
     ],
     explain: 'Un Service sans Endpoints = selector qui ne matche rien, ou Pods non Ready. C\'est LE check immédiat sur un problème de routage.'
+  },
+  {
+    q: 'Que signifie l\'état CrashLoopBackOff ?',
+    choices: [
+      { t: 'L\'image est introuvable' },
+      { t: 'Le conteneur démarre puis crashe en boucle, et kubelet espace les redémarrages', ok: true },
+      { t: 'Le Pod attend un volume' },
+      { t: 'Le nœud est en panne' }
+    ],
+    explain: 'Le conteneur plante de façon répétée ; kubelet applique un back-off croissant (10s, 20s, 40s... jusqu\'à 5 min) entre les tentatives. Lire les logs --previous.'
+  },
+  {
+    q: 'Un Pod est en ImagePullBackOff. Cause la PLUS probable à vérifier en premier ?',
+    choices: [
+      { t: 'Le nœud manque de mémoire' },
+      { t: 'Nom/tag d\'image erroné, ou registre privé sans identifiants', ok: true },
+      { t: 'Le Service n\'a pas d\'Endpoints' },
+      { t: 'La readiness probe échoue' }
+    ],
+    explain: 'Erreur au pull : tag inexistant, faute de frappe, ou registre privé sans imagePullSecret. Le message exact est dans describe → Events.'
+  },
+  {
+    q: 'Plusieurs Pods passent en Evicted sur un nœud. Quelle cause typique ?',
+    choices: [
+      { t: 'Une mauvaise version de kubectl' },
+      { t: 'Le nœud est sous pression (DiskPressure / MemoryPressure)', ok: true },
+      { t: 'Un Service mal configuré' },
+      { t: 'Un mauvais label' }
+    ],
+    explain: 'kubelet expulse des Pods pour protéger le nœud quand disque ou mémoire saturent. Vérifier kubectl describe node → Conditions.'
+  },
+  {
+    q: 'Un Pod est Running mais ne reçoit aucun trafic du Service. Quoi vérifier ?',
+    choices: [
+      { t: 'Son exit code' },
+      { t: 'Sa colonne READY et l\'état de sa readiness probe', ok: true },
+      { t: 'Son image' },
+      { t: 'Son restartPolicy' }
+    ],
+    explain: 'Running ≠ Ready. Si la readiness échoue, le Pod (0/1 READY) est retiré des Endpoints : il tourne mais n\'est pas routé.'
+  },
+  {
+    q: 'kubectl describe pod montre FailedScheduling: Insufficient cpu. Que se passe-t-il ?',
+    choices: [
+      { t: 'Le conteneur a planté' },
+      { t: 'Aucun nœud n\'a assez de CPU libre pour satisfaire les requests du Pod', ok: true },
+      { t: 'Le CPU du Pod est en panne' },
+      { t: 'Le scheduler est arrêté' }
+    ],
+    explain: 'Le scheduler ne trouve pas de nœud dont le CPU restant couvre les requests. Solutions : baisser les requests, ajouter un nœud, libérer des ressources.'
+  },
+  {
+    q: 'Un Pod reste en Init:CrashLoopBackOff. Où est le problème ?',
+    choices: [
+      { t: 'Dans le conteneur applicatif principal' },
+      { t: 'Dans un initContainer qui échoue avant le démarrage de l\'appli', ok: true },
+      { t: 'Dans le Service' },
+      { t: 'Dans le nœud' }
+    ],
+    explain: 'Le préfixe Init: indique que le blocage vient d\'un initContainer. Lire ses logs : kubectl logs <pod> -c <init-container>.'
   }
 ]
 </script>
@@ -5154,6 +5890,7 @@ spec:
 **Actions**
 
 ```bash
+kubectl apply -f 12-04-init-schema.yaml
 kubectl apply -f 12-05-init-job.yaml
 kubectl wait --for=condition=complete \
   --timeout=120s job/init-db
@@ -5311,6 +6048,7 @@ spec:
 **Actions**
 
 ```bash
+kubectl apply -f 12-07-report-script.yaml
 kubectl apply -f 12-08-report-job.yaml
 kubectl wait --for=condition=complete \
   --timeout=180s job/rapport-commercial
@@ -5322,6 +6060,7 @@ kubectl logs job/rapport-commercial
 Déployer un Pod helper qui monte le PVC `batch-reports` :
 
 ```bash
+kubectl apply -f reports-helper.yaml
 kubectl exec reports-helper -- \
   ls -la /reports/
 kubectl exec reports-helper -- \
