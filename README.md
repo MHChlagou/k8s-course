@@ -79,24 +79,6 @@ Pour de la confidentialité forte (contenu sensible, contrôle d'accès révocab
 
 ---
 
-## Personnalisation
-
-### Slide de couverture
-
-Formateur, contact, session et durée sont dans le bloc `.cover-meta` en tête de `slides.md` — éditer ces lignes pour une nouvelle session.
-
-### Couleurs et styles
-
-Tout est centralisé dans `style.css`. Les variables CSS à connaître :
-
-- `--k8s-blue: #326ce5` : bleu principal
-- `--k8s-blue-soft` : fond des callouts et headers de table
-- `--k8s-ink` : texte principal
-
-Modifier une variable met à jour tout le diaporama.
-
----
-
 ## Structure du projet
 
 ```
