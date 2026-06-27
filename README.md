@@ -38,11 +38,9 @@ pnpm build:protected
 pnpm serve:protected            # teste le résultat sur http://localhost:3000/k8s-course/
 ```
 
-> ⚠️ Le build est compilé avec un **base path** (`--base /k8s-course/`) pour
-> GitHub Pages. Servir `dist-protected` directement depuis la racine renvoie des **404**
-> sur les assets (`/k8s-course/assets/...` n'existe pas à la racine). Le script
-> `serve:protected` recopie le build sous ce sous-chemin ; ouvrez donc bien l'URL avec le
-> suffixe `/k8s-course/`.
+> ⚠️ Le build utilise un **base path** (`/k8s-course/`) pour GitHub Pages. Le script
+> `serve:protected` recopie `dist-protected` sous ce sous-chemin — ouvrir l'URL **avec** le
+> suffixe `/k8s-course/` (servir la racine directement renvoie des 404 sur les assets).
 
 ---
 
@@ -85,14 +83,7 @@ Pour de la confidentialité forte (contenu sensible, contrôle d'accès révocab
 
 ### Slide de couverture
 
-La slide de couverture contient actuellement des **valeurs placeholder** (nom `Jean Dupont`, email fictif, session `Avril 2026 · Paris`). Cherchez le bloc `.cover-meta` en tête de `slides.md` et remplacez :
-
-```html
-<span class="label">Formateur</span><span><strong>Jean Dupont</strong></span>
-<span class="label">Contact</span><code>jean.dupont@example.com</code>
-<span class="label">Session</span><span>Avril 2026 · Paris</span>
-<span class="label">Durée</span><span>2 jours (14h)</span>
-```
+Formateur, contact, session et durée sont dans le bloc `.cover-meta` en tête de `slides.md` — éditer ces lignes pour une nouvelle session.
 
 ### Couleurs et styles
 
@@ -112,11 +103,10 @@ Modifier une variable met à jour tout le diaporama.
 presentation/
 ├── slides.md                       # Contenu de la présentation
 ├── style.css                       # Palette Kubernetes (auto-chargée par Slidev)
-├── package.json                    # Slidev + staticrypt
-├── .github/workflows/deploy.yml    # CI vers GitHub Pages
-├── dist/                           # Build Slidev (gitignore)
-└── dist-protected/                 # Build chiffré (gitignore)
+├── components/Quiz.vue             # Composant de quiz interactif
+├── package.json                    # Scripts Slidev + staticrypt
+└── .github/workflows/deploy.yml    # CI vers GitHub Pages
 ```
 
-Source pédagogique (référence) : `../formation-kubernetes.md`.
+Source pédagogique de référence : `../formation-kubernetes.md`.
 
