@@ -1,15 +1,15 @@
 {
-  "name": "formation-k8s-slides",
+  "name": "k8s-course",
   "type": "module",
   "private": true,
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev": "slidev --open",
-    "build": "slidev build --base /${REPO_NAME:-formation-k8s-slides}/ --out dist",
+    "build": "slidev build --base /${REPO_NAME:-k8s-course}/ --out dist",
     "export": "slidev export",
     "encrypt": "rm -rf dist-protected && mkdir -p dist-protected && cp -r dist/. dist-protected/ && staticrypt dist/index.html --short --password \"$STATICRYPT_PASSPHRASE\" --template-title \"Formation Kubernetes\" --template-instructions \"Saisissez la passphrase communiquée par le formateur.\" --template-button \"Accéder au cours\" -d dist-protected",
     "build:protected": "pnpm run build && pnpm run encrypt",
-    "serve:protected": "rm -rf dist-serve && mkdir -p dist-serve/${REPO_NAME:-formation-k8s-slides} && cp -r dist-protected/. dist-serve/${REPO_NAME:-formation-k8s-slides}/ && pnpm dlx serve dist-serve"
+    "serve:protected": "rm -rf dist-serve && mkdir -p dist-serve/${REPO_NAME:-k8s-course} && cp -r dist-protected/. dist-serve/${REPO_NAME:-k8s-course}/ && pnpm dlx serve dist-serve"
   },
   "dependencies": {
     "@slidev/cli": "^0.50.0",

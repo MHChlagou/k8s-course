@@ -32,17 +32,17 @@ Modifier `slides.md` → hot-reload automatique.
 ## Build en local (pour tester le build protégé)
 
 ```bash
-export REPO_NAME="formation-k8s-slides"
+export REPO_NAME="k8s-course"
 export STATICRYPT_PASSPHRASE="ma-passphrase-test"
 pnpm build:protected
-pnpm serve:protected            # teste le résultat sur http://localhost:3000/formation-k8s-slides/
+pnpm serve:protected            # teste le résultat sur http://localhost:3000/k8s-course/
 ```
 
-> ⚠️ Le build est compilé avec un **base path** (`--base /formation-k8s-slides/`) pour
+> ⚠️ Le build est compilé avec un **base path** (`--base /k8s-course/`) pour
 > GitHub Pages. Servir `dist-protected` directement depuis la racine renvoie des **404**
-> sur les assets (`/formation-k8s-slides/assets/...` n'existe pas à la racine). Le script
+> sur les assets (`/k8s-course/assets/...` n'existe pas à la racine). Le script
 > `serve:protected` recopie le build sous ce sous-chemin ; ouvrez donc bien l'URL avec le
-> suffixe `/formation-k8s-slides/`.
+> suffixe `/k8s-course/`.
 
 ---
 
