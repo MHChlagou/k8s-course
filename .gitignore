@@ -1,11 +1,28 @@
+# Dependencies
 node_modules
+.pnpm-store
+
+# Build output
 dist
 dist-protected
 dist-serve
-.staticrypt.json
 .slidev
+
+# staticrypt salt (regenerated each build)
+.staticrypt.json
+
+# Secrets / environment
+.env*
+!.env.example
+
+# Logs
 *.log
+
+# OS files
 .DS_Store
-.env
-.env.local
-.pnpm-store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.vscode/
+.idea/
