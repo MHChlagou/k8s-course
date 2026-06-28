@@ -218,45 +218,39 @@ Un cluster = **control plane** (cerveau) + **worker nodes** (exécutants).
 
 # 1.3 Architecture visuelle
 
-```mermaid {scale: 0.72}
+<div class="text-sm opacity-70">Le parcours d'un <code>kubectl apply</code>, de la commande au Pod qui tourne.</div>
+
+```mermaid {scale: 0.6}
 flowchart TB
     kubectl(["💻 kubectl"]):::client
 
-    subgraph CP["CONTROL PLANE"]
+    subgraph CP["CONTROL PLANE · le cerveau"]
         direction LR
-        api["kube-apiserver"]:::primary
-        etcd[("etcd")]:::primary
         sched["kube-scheduler"]:::primary
-        ctrl["controller-manager"]:::primary
+        api["kube-apiserver"]:::primary
+        ctrl["controllers"]:::primary
+        etcd[("etcd")]:::primary
     end
 
-    subgraph W1["Worker 1"]
-        direction TB
-        k1["kubelet"]:::worker
-        p1["kube-proxy"]:::worker
-        po1["Pod · Pod"]:::pod
+    subgraph WK["WORKER NODES · les exécutants"]
+        direction LR
+        subgraph W3["Worker 3"]
+            k3["kubelet"]:::worker --> po3["Pod"]:::pod
+        end
+        subgraph W2["Worker 2"]
+            k2["kubelet"]:::worker --> po2["Pod"]:::pod
+        end
+        subgraph W1["Worker 1"]
+            k1["kubelet"]:::worker --> po1["Pod"]:::pod
+        end
     end
 
-    subgraph W2["Worker 2"]
-        direction TB
-        k2["kubelet"]:::worker
-        p2["kube-proxy"]:::worker
-        po2["Pod"]:::pod
-    end
-
-    subgraph W3["Worker 3"]
-        direction TB
-        k3["kubelet"]:::worker
-        p3["kube-proxy"]:::worker
-        po3["Pod · Pod"]:::pod
-    end
-
-    kubectl -->|HTTPS| api
-    api <--> etcd
-    api --- sched
-    api --- ctrl
+    kubectl -->|"1 · apply (HTTPS)"| api
+    sched -->|"2 · choisit le nœud"| api
+    ctrl -->|réconcilie| api
+    api <-->|"état"| etcd
+    api -.->|"3 · ordre au kubelet"| k2
     api -.-> k1
-    api -.-> k2
     api -.-> k3
 
     classDef client fill:#ffffff,stroke:#326ce5,stroke-width:2px,color:#326ce5
@@ -264,6 +258,8 @@ flowchart TB
     classDef worker fill:#e7eefc,stroke:#326ce5,color:#1a2038
     classDef pod fill:#ffffff,stroke:#c0ccde,color:#5a6378
 ```
+
+<div class="text-xs opacity-60 pt-1">Puis le <strong>kubelet</strong> lance le Pod (étape 4) et le maintient en vie.</div>
 
 ---
 
