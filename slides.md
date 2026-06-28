@@ -86,11 +86,11 @@ layout: default
 
 ### Fondamentaux
 
-- **Module 1** : Introduction à Kubernetes
-- **Module 2** : kubectl
-- **Module 3** : Les Pods
-- **Module 4** : Logs & inspection
-- **Module 5** : Namespaces, Labels, Services
+- **≈09:00** · M1 Introduction à Kubernetes
+- **≈10:00** · M2 kubectl
+- **≈11:15** · M3 Les Pods
+- **≈14:00** · M4 Logs & inspection
+- **≈15:45** · M5 Namespaces, Labels, Services
 
 </div>
 <div>
@@ -100,7 +100,7 @@ layout: default
 - Théorie courte, beaucoup de pratique
 - Cluster local `kind` (1 control-plane + 2 workers)
 - Focus **batch**, pas d'exposition web
-- Pauses toutes les ~1h30
+- Pauses ~1h30 · déjeuner ≈12:30
 
 </div>
 </div>
@@ -112,6 +112,15 @@ layout: section
 # Module 1
 
 Introduction à Kubernetes · **1h**
+
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- expliquer ce qu'est Kubernetes et le **modèle déclaratif**
+- situer les composants (control plane / workers)
+- créer votre **cluster de TP** avec kind
+
+</div>
 
 ---
 
@@ -211,7 +220,8 @@ Un cluster = **control plane** (cerveau) + **worker nodes** (exécutants).
 ### Worker nodes
 
 - **kubelet** : agent local, parle à l'apiserver, lance les conteneurs.
-- **kube-proxy** : gère le réseau local du nœud.
+- **kube-proxy** : route le trafic des **Services** (règles iptables/IPVS).
+- **CNI** (Calico, Flannel...) : réseau **entre Pods**.
 - **Container runtime** : containerd, CRI-O, exécute les conteneurs.
 
 ---
@@ -249,7 +259,7 @@ flowchart TB
     sched -->|"2 · choisit le nœud"| api
     ctrl -->|réconcilie| api
     api <-->|"état"| etcd
-    api -.->|"3 · ordre au kubelet"| k2
+    api -.->|"3 · Pod assigné au nœud"| k2
     api -.-> k1
     api -.-> k3
 
@@ -259,7 +269,7 @@ flowchart TB
     classDef pod fill:#ffffff,stroke:#c0ccde,color:#5a6378
 ```
 
-<div class="text-xs opacity-60 pt-1">Puis le <strong>kubelet</strong> lance le Pod (étape 4) et le maintient en vie.</div>
+<div class="text-xs opacity-60 pt-1">Le <strong>kubelet</strong> surveille l'apiserver, récupère le Pod assigné à son nœud et le lance (étape 4).</div>
 
 ---
 
@@ -567,6 +577,15 @@ layout: section
 # Module 2
 
 kubectl · **1h**
+
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- piloter le cluster avec les **verbes essentiels**
+- distinguer **impératif** et **déclaratif**
+- inspecter et formater la sortie (`describe`, `explain`, `-o`)
+
+</div>
 
 ---
 
@@ -1047,6 +1066,15 @@ layout: section
 
 Les Pods, brique de base · **2h**
 
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- créer et paramétrer des **Pods batch**
+- maîtriser `restartPolicy`, variables, **probes**, initContainers
+- lire les **phases** du cycle de vie
+
+</div>
+
 ---
 
 # 3.1 Qu'est-ce qu'un Pod ?
@@ -1183,6 +1211,10 @@ en boucle après son succès → <code>CrashLoopBackOff</code>.
 
 </div>
 
+<div class="pt-2 text-xs opacity-70">
+🔥 <strong>Vécu</strong> : un batch de paie laissé en <code>Always</code> s'est relancé des milliers de fois une nuit entière. Facture cloud salée au réveil.
+</div>
+
 ---
 
 # 💻 Exercice 3.1 - Premier Pod batch
@@ -1210,6 +1242,20 @@ spec:
 **Workflow** : `kubectl apply -f pod.yaml` → `kubectl get pods -w` → `kubectl logs calcul-somme`
 
 Vous verrez typiquement : `Pending` → `ContainerCreating` → `Running` → `Completed`.
+
+</div>
+
+<div class="pt-1 text-sm">
+
+**🤔 Avant de lancer : que va afficher `kubectl logs` ?**
+
+<v-click>
+
+```
+La somme de 1 à 100 vaut 5050
+```
+
+</v-click>
 
 </div>
 
@@ -1305,19 +1351,21 @@ spec:
 </div>
 <div>
 
-**Actions**
+**Actions** (le script fait `exit 42`)
 
 ```bash
 kubectl apply -f pod-echec.yaml
-
-# Après ~5 s
 kubectl get pod batch-en-echec
-# → STATUS: Error
-
 kubectl describe pod batch-en-echec \
-  | grep -A 2 "Exit Code"
-# → Exit Code: 42
+  | grep "Exit Code"
 ```
+
+**🤔 Quel statut / exit code ?**
+<v-click>
+
+`STATUS: Error` · `Exit Code: 42` (= la valeur du `exit`)
+
+</v-click>
 
 **Variation**
 
@@ -1711,6 +1759,15 @@ layout: section
 
 Logs, inspection et investigations · **1h30**
 
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- appliquer la méthode `get` → `describe` → `logs` → `exec`
+- diagnostiquer **Pending**, **ImagePullBackOff**, **CrashLoop**
+- entrer dans un Pod et lire les **Events**
+
+</div>
+
 ---
 
 # 4.1 Les 4 outils de base
@@ -2023,14 +2080,14 @@ kubectl get pod pod-mauvaise-image
 
 kubectl describe pod pod-mauvaise-image
 # → Events:
-#   Failed: Failed to pull image
-#   "alpinnne:3.19": rpc error:
-#   manifest unknown
+#   Failed to pull image "alpinnne:3.19":
+#   repository does not exist or
+#   no pull access
 ```
 
 **À retenir**
 
-`ImagePullBackOff` = kubectl a pull-retry et abandonne temporairement (backoff exponentiel).
+`ImagePullBackOff` = le **kubelet** a tenté le pull, échoué, puis applique un backoff exponentiel.
 
 Vérifier : **nom**, **tag**, **registry privée** (secrets).
 
@@ -2143,6 +2200,79 @@ Multi-conteneurs → <code>-c</code> obligatoire. <code>--previous</code> = l'in
 </div>
 
 ---
+layout: default
+---
+
+# 🏥 Clinique du Pod cassé
+
+**Règle du jeu** : appliquez ces 3 Pods, lisez le **statut**, puis trouvez la cause avec `get` → `describe` → `logs` (sans corriger tout de suite).
+
+<div class="ex-grid grid grid-cols-3 gap-3 pt-2 text-xs">
+<div class="callout-warn">
+
+### Patient 1
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: malade-1}
+spec:
+  containers:
+  - name: c
+    image: alpine:3.19
+    resources:
+      requests:
+        memory: 500Gi
+```
+
+Reste bloqué. **Pourquoi ?**
+
+</div>
+<div class="callout-warn">
+
+### Patient 2
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: malade-2}
+spec:
+  containers:
+  - name: c
+    image: alpinnne:3.19
+```
+
+Ne démarre jamais. **Pourquoi ?**
+
+</div>
+<div class="callout-warn">
+
+### Patient 3
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: malade-3}
+spec:
+  restartPolicy: OnFailure
+  containers:
+  - name: c
+    image: alpine:3.19
+    command: ["false"]
+```
+
+Tourne en boucle. **Pourquoi ?**
+
+</div>
+</div>
+
+<div class="pt-2 callout-k8s text-xs">
+
+🩺 Pour chacun : quel **statut** ? quelle **commande** révèle la cause ? quel **remède** ?
+
+</div>
+
+---
 
 # 4.6 À retenir
 
@@ -2228,7 +2358,7 @@ const quizM4 = [
       { t: 'kubectl logs mon-pod/sidecar' },
       { t: 'kubectl logs --all mon-pod' }
     ],
-    explain: 'Sur un Pod multi-conteneurs, kubectl logs exige -c <conteneur>, sinon il prend le premier conteneur (ou renvoie une erreur).'
+    explain: 'Sur un Pod multi-conteneurs, kubectl logs renvoie une erreur exigeant -c <conteneur> (sauf si l\'annotation default-container est posée).'
   },
   {
     q: 'Quelle commande liste les événements du namespace, triés du plus ancien au plus récent ?',
@@ -2311,6 +2441,15 @@ layout: section
 # Module 5
 
 Organisation : Namespaces, Labels, Selectors, Services · **1h30**
+
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- organiser avec **namespaces**, **labels** et selectors
+- exposer des Pods via un **Service** ClusterIP
+- résoudre un Service par son **nom DNS**
+
+</div>
 
 ---
 
@@ -2451,7 +2590,7 @@ Les Pods sont **éphémères**, leur IP change. Un batch qui doit joindre une ba
 
 - une **IP stable** + un **nom DNS stable**
 - un **routage auto** vers les Pods sains
-- du **load balancing** round-robin
+- du **load balancing** (aléatoire en iptables, round-robin en IPVS)
 - une **mise à jour auto** quand les Pods changent
 
 </div>
@@ -2692,14 +2831,14 @@ kubectl run redis-test --rm -it \
   --image=redis:7-alpine \
   --restart=Never -- sh
 
-# À l'intérieur :
-redis-cli -h cache SET ma-cle "valeur1"
+# À l'intérieur : chaque appel = une nouvelle
+# connexion, répartie sur les 2 Pods
 for i in 1 2 3 4 5 6; do
-  redis-cli -h cache GET ma-cle
+  redis-cli -h cache INFO server | grep run_id
 done
 ```
 
-Lectures alternent entre les 2 Pods.
+Le `run_id` change : on tape tantôt redis-1, tantôt redis-2.
 
 </div>
 
@@ -2742,7 +2881,7 @@ kubectl run net --rm -it \
 # À l'intérieur du Pod :
 nslookup cache
 nslookup cache.formation.svc.cluster.local
-wget -qO- cache:6379 ; echo
+nc -zv cache 6379          # port atteignable ?
 ```
 
 </div>
@@ -2825,7 +2964,7 @@ Les selectors set-based servent aux Services, Deployments, NetworkPolicies...
 
 - **Service ClusterIP** : IP + DNS stables
 - Routage auto vers Pods matchant le selector
-- Load balancing round-robin intégré
+- Load balancing intégré (aléatoire iptables / rr IPVS)
 - Hors scope : Ingress, LoadBalancer
 
 </div>
@@ -2891,7 +3030,7 @@ const quizM5 = [
     explain: 'ClusterIP (le défaut) ne donne qu\'une IP interne. NodePort et LoadBalancer ajoutent une exposition externe par-dessus.'
   },
   {
-    q: 'Quel nom DNS joint le Service "api" du namespace "prod" depuis un autre namespace ?',
+    q: 'Quel est le nom DNS **complet** (FQDN) du Service "api" du namespace "prod" ?',
     choices: [
       { t: 'api' },
       { t: 'api.prod' },
@@ -2974,24 +3113,46 @@ layout: default
 
 ### Workloads batch
 
-- **Module 6** : Jobs
-- **Module 7** : CronJobs
-- **Module 8** : ConfigMaps & Secrets
-- **Module 9** : Volumes
-- **Module 10** : Troubleshooting avancé
+- **≈09:00** · M6 Jobs
+- **≈11:00** · M7 CronJobs
+- **≈11:30** · M8 ConfigMaps & Secrets
+- **≈14:00** · M9 Volumes
+- **≈15:00** · M10 Troubleshooting avancé
 
 </div>
 
 <div>
 
-### Application métier (bonus)
+### Application métier (bonus, après-midi)
 
-- **Module 11** : OpenFOAM sur K8s
-- **Module 12** : Batchs avec base de données
-- **Module 13** : Batchs avec service & long-running
+- **M11** : OpenFOAM sur K8s
+- **M12** : Batchs avec base de données
+- **M13** : Batchs avec service & long-running
 
 </div>
 
+</div>
+
+---
+layout: center
+class: text-center
+---
+
+# Réveil : et hier ? ☀️
+
+<div class="text-left max-w-xl mx-auto pt-4 space-y-2 text-sm">
+
+**En 2 minutes, qui se souvient :**
+
+- la différence entre un **Pod** et un **conteneur** ?
+- quelle commande pour les **logs** d'un Pod qui a crashé ?
+- à quoi sert un **Service** devant des Pods éphémères ?
+- pourquoi `restartPolicy: Always` est un piège pour un batch ?
+
+</div>
+
+<div class="pt-6 text-sm opacity-60">
+Aujourd'hui on assemble ces briques en **vrais pipelines**.
 </div>
 
 ---
@@ -3001,6 +3162,15 @@ layout: section
 # Module 6
 
 Jobs : exécuter des tâches batch · **2h**
+
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- exécuter un batch fiable avec un **Job**
+- régler **parallélisme**, completions, retries, timeout
+- nettoyer automatiquement (`ttlSecondsAfterFinished`)
+
+</div>
 
 ---
 
@@ -3162,12 +3332,12 @@ Cas le plus courant.
 
 <div class="callout-k8s">
 
-### 2. Work queue
+### 2. Complétions fixes
 
 `completions: N`
 `parallelism: M`
 
-Chaque Pod pioche un élément de travail (queue, base, S3…).
+N exécutions à réussir, M en parallèle. (Le vrai *work-queue* laisse `completions` vide + une file externe.)
 
 Job OK quand N Pods ont réussi.
 
@@ -3407,7 +3577,7 @@ done
 layout: default
 ---
 
-# 💻 Exercice 6.3 - Job parallèle (work-queue)
+# 💻 Exercice 6.3 - Job parallèle (complétions fixes)
 
 **Scénario** : 10 items à traiter, 3 workers en parallèle qui piochent chacun une tâche.
 
@@ -3696,6 +3866,15 @@ layout: section
 
 CronJobs : tâches planifiées · **1h30**
 
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- planifier des batchs récurrents avec un **CronJob**
+- maîtriser la **syntaxe cron**, `concurrencyPolicy`, le fuseau
+- déclencher à la demande et **limiter l'historique**
+
+</div>
+
 ---
 
 # 7.1 Concept
@@ -3771,7 +3950,7 @@ metadata:
   name: rapport-nuit
 spec:
   schedule: "0 2 * * *"
-  timeZone: "Europe/Paris"            # depuis K8s 1.27
+  timeZone: "Europe/Paris"            # stable 1.27 (beta dès 1.25)
   concurrencyPolicy: Forbid           # Allow | Forbid | Replace
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
@@ -4145,6 +4324,10 @@ Tester une expression : <a href="https://crontab.guru">crontab.guru</a>.
 
 </div>
 
+<div class="pt-3 text-xs opacity-70 text-center">
+🔥 <strong>Vécu</strong> : un rapport « quotidien à 02:00 » tournait en UTC sur un cluster, soit 04:00 à Paris. Personne ne comprenait pourquoi l'astreinte était réveillée une heure trop tard.
+</div>
+
 ---
 layout: center
 ---
@@ -4274,6 +4457,15 @@ layout: section
 # Module 8
 
 ConfigMaps & Secrets · **1h30**
+
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- externaliser la configuration avec un **ConfigMap**
+- gérer les données sensibles avec un **Secret**
+- injecter en **variables** ou en **fichiers** (volume)
+
+</div>
 
 ---
 
@@ -4556,8 +4748,9 @@ spec:
           args:
             - |
               ls -la /opt/batch/
-              chmod +x /opt/batch/traitement.sh
-              /opt/batch/traitement.sh
+              # volume ConfigMap monté en lecture seule :
+              # on lance via l'interpréteur (pas de chmod possible)
+              sh /opt/batch/traitement.sh
           volumeMounts:
             - {name: cfg, mountPath: /opt/batch}
       volumes:
@@ -4581,7 +4774,7 @@ Dans `/opt/batch/` on trouve 2 **fichiers** :
 - `traitement.sh`
 - `config.json`
 
-Chaque clé du ConfigMap devient un fichier avec la même contenu.
+Chaque clé du ConfigMap devient un fichier avec le même contenu.
 
 <div class="callout-k8s text-xs pt-1">
 💡 <strong>Pattern puissant</strong> : livrer un script complet dans un ConfigMap et l'exécuter depuis une image générique (alpine, ubuntu, python). Plus besoin de construire une image custom pour chaque petite variante.
@@ -4661,6 +4854,10 @@ kubectl get secret api-cred \
 
 <div class="callout-warn text-xs pt-1">
 Les Secrets sont <strong>encodés</strong> (base64), pas <strong>chiffrés</strong> par défaut. Pour le chiffrement réel : encryption at rest d'etcd, ou Vault / Sealed Secrets.
+</div>
+
+<div class="text-xs opacity-70 pt-1">
+🔥 <strong>Vécu</strong> : un Secret « sécurisé » en base64 committé dans Git. <code>base64 -d</code> en 2 secondes : le mot de passe de prod était lisible par toute l'équipe.
 </div>
 
 </div>
@@ -4874,6 +5071,15 @@ layout: section
 
 Volumes et stockage · **1h**
 
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- persister des données **au-delà du Pod**
+- distinguer `emptyDir`, `hostPath`, **PVC**
+- comprendre PV/PVC, **access modes**, StorageClass
+
+</div>
+
 ---
 
 # 9.1 Pourquoi des volumes ?
@@ -5044,7 +5250,7 @@ Une **demande** d'espace par l'application.
 
 Kubernetes lie le PVC à un PV compatible.
 
-Reste `Pending` jusqu'au 1er Pod consommateur (`WaitForFirstConsumer`).
+Avec une StorageClass en `WaitForFirstConsumer` (cas de kind), reste `Pending` jusqu'au 1er Pod consommateur.
 
 </div>
 
@@ -5405,6 +5611,15 @@ layout: section
 
 Troubleshooting avancé · **1h**
 
+<div class="pt-6 callout-k8s text-left max-w-md mx-auto text-sm">
+
+**🎯 À la fin, vous saurez :**
+- diagnostiquer les **incidents courants** méthodiquement
+- lire **exit codes**, OOMKill, FailedScheduling
+- dimensionner avec `requests` / `limits`
+
+</div>
+
 ---
 
 # 10.1 Catalogue des statuts problématiques
@@ -5565,17 +5780,18 @@ kubectl get pods -l job-name=job-oom -w
 # → STATUS devient OOMKilled
 ```
 
-**Inspecter**
+**🤔 Quel Exit Code après un OOMKill ?**
 
 ```bash
-POD=$(kubectl get pods \
-  -l job-name=job-oom -o name | head -1)
-
-kubectl describe $POD | grep -A 5 "Last State"
-# Last State:    Terminated
-#   Reason:      OOMKilled
-#   Exit Code:   137
+kubectl describe pod/<pod> \
+  | grep -A2 "Last State"
 ```
+
+<v-click>
+
+`Reason: OOMKilled` · `Exit Code: 137`
+
+</v-click>
 
 **À retenir**
 
@@ -6294,6 +6510,48 @@ kubectl cp openfoam-helper:/results \
 </div>
 
 ---
+layout: center
+---
+
+# 🎉 Vous venez de faire tourner de la vraie CFD !
+
+<div class="grid grid-cols-2 gap-8 pt-2 text-sm text-left max-w-4xl mx-auto">
+<div>
+
+**Le solveur `icoFoam` a convergé** (sortie réelle)
+
+```
+Time = 0.5
+time step continuity errors :
+  sum local  = 9.66e-09
+  global     = 1.13e-18
+ExecutionTime = 0.1 s
+  Simulation terminée avec succès
+```
+
+</div>
+<div>
+
+**Vos résultats, persistés dans le PVC**
+
+```
+/results/cavity-.../
+├── 0  0.1  0.2  0.3  0.4  0.5
+├── constant/   system/
+├── log.blockMesh
+└── log.icoFoam
+```
+
+Chaque dossier `0.1`…`0.5` = les champs vitesse/pression à cet instant, ouvrables dans **ParaView**.
+
+</div>
+</div>
+
+<div class="pt-4 text-sm opacity-70 text-center">
+Une vraie simulation de mécanique des fluides, lancée et persistée sur un cluster Kubernetes. 🚀
+</div>
+
+---
 layout: default
 ---
 
@@ -6358,7 +6616,7 @@ metadata:
   name: openfoam-sweep
 spec:
   completions: 6
-  parallelism: 3
+  parallelism: 3              # OK : PVC RWO sur 1 nœud (kind). Multi-nœuds → RWX
   completionMode: Indexed
   backoffLimit: 2
   activeDeadlineSeconds: 3600
@@ -6548,6 +6806,49 @@ Pattern `Job calcul → Job post-traitement`.
 </div>
 
 ---
+layout: center
+---
+
+# 11.6 Quiz
+
+<script setup>
+const quizM11 = [
+  {
+    q: 'Dans un Job indexé, comment chaque Pod sait-il quelle variante traiter ?',
+    choices: [
+      { t: 'Il lit un fichier de config partagé' },
+      { t: 'Via la variable d\'env JOB_COMPLETION_INDEX (0 à N-1)', ok: true },
+      { t: 'Le scheduler le lui passe en argument' },
+      { t: 'Au hasard, puis coordination par etcd' }
+    ],
+    explain: 'completionMode: Indexed injecte JOB_COMPLETION_INDEX dans chaque Pod, parfait pour mapper sur une liste fixe de variantes (les 6 viscosités ici).'
+  },
+  {
+    q: 'Pourquoi un seul Job indexé plutôt que 6 Jobs séparés ?',
+    choices: [
+      { t: 'Un seul manifeste, parallelism borne la charge, retry/deadline mutualisés', ok: true },
+      { t: 'C\'est plus rapide à l\'exécution' },
+      { t: '6 Jobs séparés sont interdits par Kubernetes' },
+      { t: 'Pour partager la même IP' }
+    ],
+    explain: 'Le Job indexé industrialise un balayage de paramètres : une définition, un plafond de parallélisme, une politique de retry commune.'
+  },
+  {
+    q: 'Où les résultats de la simulation survivent-ils à la fin du Job ?',
+    choices: [
+      { t: 'Dans le système de fichiers du conteneur' },
+      { t: 'Dans les logs du Pod' },
+      { t: 'Dans le PVC monté (volume persistant)', ok: true },
+      { t: 'Dans etcd' }
+    ],
+    explain: 'Le conteneur est éphémère ; seuls les fichiers écrits dans le PVC (monté sur /results) persistent après la fin du Job.'
+  }
+]
+</script>
+
+<Quiz :questions="quizM11" />
+
+---
 layout: section
 ---
 
@@ -6684,10 +6985,10 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
           livenessProbe:
-            exec:
-              command: [sh, -c, 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"']
+            tcpSocket: {port: 5432}   # "vivant" = process écoute (plus tolérant)
             initialDelaySeconds: 30
             periodSeconds: 10
+            failureThreshold: 6
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -7177,6 +7478,49 @@ Le trio <strong>Secret + ConfigMap + Job/CronJob</strong> couvre 80 % des batchs
 </div>
 
 ---
+layout: center
+---
+
+# 12.10 Quiz
+
+<script setup>
+const quizM12 = [
+  {
+    q: 'Comment les batchs (init, rapport) joignent-ils la base PostgreSQL ?',
+    choices: [
+      { t: 'Par l\'IP du Pod Postgres' },
+      { t: 'Via le Service ClusterIP, par son nom DNS `postgres`', ok: true },
+      { t: 'Par un montage de volume partagé' },
+      { t: 'Via une variable d\'env contenant l\'IP' }
+    ],
+    explain: 'Le Pod Postgres est éphémère (IP changeante) ; le Service `postgres` offre un nom DNS et une IP stables aux batchs.'
+  },
+  {
+    q: 'Pourquoi `strategy: Recreate` sur le Deployment Postgres ?',
+    choices: [
+      { t: 'Pour redémarrer plus vite' },
+      { t: 'Éviter 2 Pods montant le même PVC `ReadWriteOnce` en même temps', ok: true },
+      { t: 'C\'est obligatoire pour les bases de données' },
+      { t: 'Pour garder les anciens Pods en Error' }
+    ],
+    explain: 'RollingUpdate démarrerait le nouveau Pod avant de tuer l\'ancien : deux Pods voudraient le PVC RWO simultanément. Recreate tue d\'abord, démarre ensuite.'
+  },
+  {
+    q: 'Où sont stockés les identifiants de connexion à la base ?',
+    choices: [
+      { t: 'En clair dans le Deployment' },
+      { t: 'Dans un ConfigMap' },
+      { t: 'Dans un Secret, injecté via envFrom/secretRef', ok: true },
+      { t: 'Dans un fichier du PVC' }
+    ],
+    explain: 'Les credentials (user, password, db) sont dans un Secret `postgres-creds`, injecté en variables d\'env dans Postgres et les batchs.'
+  }
+]
+</script>
+
+<Quiz :questions="quizM12" />
+
+---
 layout: section
 ---
 
@@ -7656,6 +8000,8 @@ kubectl logs -f -l app=worker-perm \
 
 ### Tester SIGTERM
 
+**🎯 Défi : je tue ce worker. Que va-t-il se passer ?**
+
 ```bash
 POD=$(kubectl get pods -l app=worker-perm \
         -o name | head -1)
@@ -7687,8 +8033,8 @@ kubectl get pods -l app=worker-perm
 # Retour à 1
 kubectl scale deploy/worker-perm \
   --replicas=1
-# Un Pod passe Terminating
-# reçoit SIGTERM et sort proprement
+# 3 Pods passent Terminating
+# reçoivent SIGTERM et sortent proprement
 ```
 
 ### Nettoyage final
@@ -7758,6 +8104,49 @@ kubectl config set-context --current \
 <div class="pt-4 text-center text-sm opacity-70">
 <code>kubectl scale</code> et <code>kubectl rollout restart</code> sont les commandes d'exploitation quotidiennes d'un Deployment.
 </div>
+
+---
+layout: center
+---
+
+# 13.6 Quiz
+
+<script setup>
+const quizM13 = [
+  {
+    q: 'Pour un worker qui interroge une API en boucle 24/7, quel objet ?',
+    choices: [
+      { t: 'Un Job' },
+      { t: 'Un CronJob' },
+      { t: 'Un Deployment', ok: true },
+      { t: 'Un Pod nu' }
+    ],
+    explain: 'Un Job se termine ; un worker permanent doit toujours tourner. Le Deployment maintient en continu le nombre de replicas voulu.'
+  },
+  {
+    q: 'Vous supprimez un Pod du Deployment worker-perm. Que se passe-t-il ?',
+    choices: [
+      { t: 'Rien, il reste supprimé' },
+      { t: 'Le Deployment en recrée un pour maintenir les replicas', ok: true },
+      { t: 'Tout le Deployment tombe en erreur' },
+      { t: 'Il faut le recréer à la main' }
+    ],
+    explain: 'Le Deployment garantit en permanence `replicas` Pods Running : la suppression déclenche immédiatement une recréation (self-healing).'
+  },
+  {
+    q: 'Deux workers interrogent la même file sans verrou. Quel risque ?',
+    choices: [
+      { t: 'Aucun, Kubernetes synchronise' },
+      { t: 'Ils peuvent prendre la MÊME tâche → double traitement', ok: true },
+      { t: 'Un des deux Pods crashe' },
+      { t: 'La file se bloque' }
+    ],
+    explain: 'Sans claim atomique (SELECT ... FOR UPDATE SKIP LOCKED, visibility timeout SQS), deux workers peuvent traiter la même tâche en double.'
+  }
+]
+</script>
+
+<Quiz :questions="quizM13" />
 
 ---
 layout: section
@@ -7832,43 +8221,44 @@ spec:
 
 ---
 
-# Annexe C - Exercice final intégrateur
+# 🏆 Défi final : le boss
 
-**Énoncé condensé** : système de rapports clients quotidiens.
+**30 minutes, en solo.** Vous avez toutes les briques. Assemblez un système de **rapports clients quotidiens** pour ACME.
 
-<div class="grid grid-cols-2 gap-6 pt-4">
+<div class="grid grid-cols-2 gap-6 pt-2">
 
-<div class="callout-k8s">
+<div class="callout-k8s text-sm">
 
-### Contraintes
+### Le cahier des charges
 
 1. **03h00** tous les jours
 2. **5 clients**, parallélisme **2**
-3. Durée aléatoire, **échec 1/4**
-4. **Retry 3 fois** max
-5. Config dans **ConfigMap**
-6. Token dans **Secret**
-7. Rapports persistants (**PVC**)
-8. **Timeout 30 min**
-9. Historique : **3 succès / 2 échecs**
+3. Durée aléatoire, **échec 1/4**, retry ≤ **3**
+4. **Timeout 30 min**
+5. Config en **ConfigMap**, token en **Secret**
+6. Rapports persistants (**PVC**)
+7. Historique : **3 succès / 2 échecs**
 
 </div>
 
-<div class="callout-k8s">
+<div class="callout-ok text-sm">
 
-### Composants utilisés
+### ✅ Checklist de réussite
 
-- `ConfigMap` (liste clients, log level)
-- `Secret` (token API)
-- `PersistentVolumeClaim`
-- `CronJob` (planification)
-- `Job` **indexé** + retry + deadline
-- Monter PVC + injecter env
-
-→ Sommation de tout le cours.
+- [ ] le CronJob se déclenche (test manuel)
+- [ ] 5 Jobs, **max 2** en parallèle
+- [ ] les échecs sont **retentés** (≤ 3)
+- [ ] config lue depuis le **ConfigMap**
+- [ ] token **jamais en clair** (Secret)
+- [ ] rapports présents dans le **PVC**
+- [ ] vieux Jobs **nettoyés** (history limit)
 
 </div>
 
+</div>
+
+<div class="pt-3 text-sm opacity-70 text-center">
+Chaque case cochée = une compétence Kubernetes acquise. 🎓 On corrige ensemble.
 </div>
 
 ---
@@ -7915,30 +8305,35 @@ layout: center
 class: text-center
 ---
 
-# Fin du support
+# Fin du support 🎉
 
-<div class="pt-4">
+<div class="grid grid-cols-2 gap-8 pt-4 text-sm text-left max-w-3xl mx-auto">
+<div>
 
-Vous avez maintenant une base solide pour :
-
-</div>
-
-<div class="pt-2 text-left max-w-xl mx-auto space-y-1 text-sm">
-
-- déployer et exploiter des **batchs** sur Kubernetes
-- planifier des **tâches récurrentes** avec CronJob
-- **paramétrer** via ConfigMaps et Secrets
-- **persister** des données entre exécutions
+### Ce que vous savez faire
+- déployer et exploiter des **batchs** (Pod, Job)
+- planifier des **tâches récurrentes** (CronJob)
+- **paramétrer** via ConfigMaps & Secrets
+- **persister** des données (PVC)
 - **diagnostiquer** et corriger les incidents
+- assembler un **pipeline complet** (DB + API + workers)
 
 </div>
+<div>
 
-<div class="pt-8 callout-k8s text-sm max-w-lg mx-auto">
+### Continuer à pratiquer
+- [killercoda.com](https://killercoda.com) : labs K8s gratuits
+- [kubernetes.io/docs](https://kubernetes.io/docs) : la référence
+- Certification **CKA / CKAD**
+- Rejouer ces TP, **casser des choses**, observer
 
+</div>
+</div>
+
+<div class="pt-5 callout-k8s text-sm max-w-lg mx-auto text-center">
 💬 <em>Les commandes <code>kubectl</code> s'apprennent en les tapant, pas en les lisant.</em>
-
 </div>
 
-<div class="pt-4 text-xs opacity-60">
-Merci de votre attention · Questions / retours : chlagoumedhedi@outlook.com
+<div class="pt-3 text-xs opacity-60 text-center">
+Merci de votre attention · chlagoumedhedi@outlook.com · <a href="https://www.linkedin.com/in/chlagou-med-hedi/">LinkedIn</a>
 </div>
