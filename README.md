@@ -1,6 +1,6 @@
 # Formation Kubernetes - Slides
 
-Support de présentation interactif pour la formation Kubernetes (2 jours).
+Support de présentation interactif pour la formation Kubernetes.
 
 Construit avec [Slidev](https://sli.dev) + [staticrypt](https://github.com/robinmoisson/staticrypt) pour la protection par passphrase, déployé sur GitHub Pages. Palette aux couleurs du logo Kubernetes (bleu `#326ce5` sur fond blanc).
 
@@ -39,7 +39,7 @@ pnpm serve:protected            # teste le résultat sur http://localhost:3000/k
 ```
 
 > ⚠️ Le build utilise un **base path** (`/k8s-course/`) pour GitHub Pages. Le script
-> `serve:protected` recopie `dist-protected` sous ce sous-chemin — ouvrir l'URL **avec** le
+> `serve:protected` recopie `dist-protected` sous ce sous-chemin - ouvrir l'URL **avec** le
 > suffixe `/k8s-course/` (servir la racine directement renvoie des 404 sur les assets).
 
 ---
@@ -60,35 +60,4 @@ pnpm serve:protected            # teste le résultat sur http://localhost:3000/k
 - Modifier `slides.md` → commit → push → redéploiement auto.
 - Changer la passphrase : éditer le secret GitHub, puis relancer le workflow (`Actions → Deploy → Re-run`).
 
----
-
-## Modèle de sécurité : à comprendre avant d'utiliser
-
-`staticrypt` fournit une **protection de classe salle de cours**, pas de confidentialité forte :
-
-✅ **Ça protège contre** :
-- Accès aléatoire via l'URL publique
-- Indexation par moteurs de recherche
-- Partage accidentel du lien sans passphrase
-
-❌ **Ça ne protège PAS contre** :
-- Un stagiaire qui a la passphrase et sauvegarde la page pour la rediffuser
-- Extraction de contenu via devtools une fois la passphrase saisie
-
-Pour de la confidentialité forte (contenu sensible, contrôle d'accès révocable par stagiaire), il faut passer à Cloudflare Access, Netlify Identity, ou un backend d'authentification, ce qui sort du cadre GitHub Pages.
-
----
-
-## Structure du projet
-
-```
-presentation/
-├── slides.md                       # Contenu de la présentation
-├── style.css                       # Palette Kubernetes (auto-chargée par Slidev)
-├── components/Quiz.vue             # Composant de quiz interactif
-├── package.json                    # Scripts Slidev + staticrypt
-└── .github/workflows/deploy.yml    # CI vers GitHub Pages
-```
-
-Source pédagogique de référence : `../formation-kubernetes.md`.
 
