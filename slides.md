@@ -643,7 +643,7 @@ echo 'source <(kubectl completion zsh)' >> ~/.zshrc
 ```
 
 <div class="pt-4 text-sm opacity-70">
-Après ça : <code>k g po</code> ↹ → <code>kubectl get pods</code>.
+Après ça : <code>k get po</code> → <code>kubectl get pods</code> (alias <code>k</code> + nom court <code>po</code>). La complétion <kbd>↹</kbd> finit verbes et ressources au fil de la frappe.
 Prenez 2 min pour le configurer maintenant, vous allez gagner des heures.
 </div>
 
