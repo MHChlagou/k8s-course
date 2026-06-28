@@ -43,6 +43,41 @@ flèches / espace pour naviguer · <kbd>o</kbd> vue d'ensemble · <kbd>f</kbd> p
 layout: default
 ---
 
+# 👋 Votre formateur
+
+<div class="grid grid-cols-[2fr_1fr] gap-8 pt-6">
+<div>
+
+### Mohamed Hedi CHLAGOU
+
+Anime cette formation **Kubernetes** orientée **batch & calcul scientifique**.
+
+Le fil rouge de ces 2 jours : **théorie courte, beaucoup de pratique** sur un vrai cluster `kind`, du premier Pod jusqu'aux pipelines complets (PostgreSQL, OpenFOAM, API + workers).
+
+<div class="pt-4 callout-k8s text-sm">
+💬 N'hésitez pas à poser vos questions à tout moment et à partager vos cas d'usage réels.
+</div>
+
+</div>
+<div>
+
+<div class="callout-k8s text-sm">
+
+**Contact**
+
+📧 [chlagoumedhedi@outlook.com](mailto:chlagoumedhedi@outlook.com)
+
+💼 [LinkedIn](https://www.linkedin.com/in/chlagou-med-hedi/)
+
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
 # Sommaire - Jour 1
 
 <div class="grid grid-cols-2 gap-6 pt-4">
@@ -110,8 +145,23 @@ Il faut un <strong>orchestrateur</strong>.
 
 <div class="grid grid-cols-[1fr_2fr] gap-8 pt-4">
 
-<div class="text-8xl font-bold opacity-20 text-center">
-  K8s
+<div class="pt-2">
+
+```mermaid {scale: 0.5}
+flowchart TD
+    d["État désiré"]:::p
+    o["Observer le réel"]:::w
+    c{"Écart ?"}:::w
+    a["Agir"]:::p
+    d --> o --> c
+    c -->|oui| a --> o
+    c -->|non| o
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+```
+
+<div class="text-center text-xs opacity-60 pt-1">La boucle de réconciliation</div>
+
 </div>
 
 <div>
@@ -266,6 +316,10 @@ spec:
 3. `metadata` : nom, labels, namespace
 4. `spec` : ce qu'on veut que l'objet fasse
 
+</div>
+
+<div class="pt-2 callout-warn text-xs">
+⚠️ <strong>Indentation en espaces uniquement</strong> (jamais de tabulations). Piège classique : le <code>-</code> mal aligné sous <code>containers:</code>.
 </div>
 
 ---
@@ -879,9 +933,12 @@ Les Pods, brique de base · **2h**
 # 3.1 Qu'est-ce qu'un Pod ?
 
 Le **Pod** est la plus petite unité manipulable par Kubernetes.
-Ce n'est **PAS** un conteneur : c'est un **groupe de 1+ conteneurs** qui :
+Ce n'est **PAS** un conteneur : c'est un **groupe de 1+ conteneurs**.
 
-<div class="pt-4">
+<div class="grid grid-cols-[3fr_2fr] gap-6 pt-2">
+<div>
+
+Les conteneurs d'un Pod :
 
 - partagent le même **réseau** (même IP, mêmes ports) ; cette IP est **éphémère**, elle change à chaque recréation
 - partagent les mêmes **volumes**
@@ -889,15 +946,33 @@ Ce n'est **PAS** un conteneur : c'est un **groupe de 1+ conteneurs** qui :
 - naissent et meurent **ensemble**
 
 </div>
+<div>
 
-<div class="pt-6 callout-k8s">
+```mermaid {scale: 0.5}
+flowchart TB
+    subgraph pod["Pod (1 IP partagée)"]
+        direction LR
+        c1["conteneur<br/>principal"]:::p
+        c2["sidecar"]:::w
+        c1 <-->|localhost| c2
+    end
+    vol[("volume<br/>partagé")]:::s
+    pod --- vol
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+    classDef s fill:#fff,stroke:#c0ccde,color:#5a6378
+```
 
-💡 Dans **90 %** des cas, un Pod = un conteneur. Le multi-conteneurs sert
-surtout au pattern **sidecar** (app principale + conteneur qui collecte les logs).
+</div>
+</div>
+
+<div class="pt-2 callout-k8s text-sm">
+
+💡 Dans **90 %** des cas, un Pod = un conteneur. Le multi-conteneurs sert surtout au pattern **sidecar** (app principale + conteneur qui collecte les logs).
 
 </div>
 
-<div class="pt-4 text-sm opacity-70">
+<div class="pt-2 text-sm opacity-70">
 Pour nos batchs : un Pod = UN conteneur qui exécute le traitement, puis termine.
 </div>
 
@@ -1538,6 +1613,8 @@ LE module central pour exploiter des batchs.
 
 📋 <strong>Méthodologie universelle</strong> : <code>get</code> → <code>describe</code> → <code>logs</code> → (<code>exec</code>)
 
+<div class="text-sm pt-1">Comme un médecin : <code>get</code> = constantes, <code>describe</code> = dossier, <code>logs</code> = ce que dit le patient, <code>exec</code> = ausculter.</div>
+
 </div>
 
 ---
@@ -1564,9 +1641,12 @@ kubectl logs <pod> -c <conteneur>
 kubectl logs <pod> --previous
 ```
 
-<div class="pt-3 callout-k8s text-sm">
-<code>--previous</code> (ou <code>-p</code>) est <strong>essentiel</strong>
-pour débugguer un Pod qui crashe en boucle.
+<div class="pt-2 callout-k8s text-xs">
+<code>--previous</code> (ou <code>-p</code>) est <strong>essentiel</strong> pour un Pod qui crashe en boucle.
+</div>
+
+<div class="pt-1 callout-warn text-xs">
+⚠️ <code>logs</code> ne capture que <strong>stdout/stderr</strong>. Un batch qui écrit dans un <strong>fichier</strong> n'affiche rien : rediriger la sortie vers stdout.
 </div>
 
 ---
@@ -2190,24 +2270,45 @@ Utilisé par : Services, Jobs, Deployments, NetworkPolicies…
 
 # 5.4 Les Services (ClusterIP)
 
-### Pourquoi ?
+Les Pods sont **éphémères**, leur IP change. Un batch qui doit joindre une base, un cache ou une API interne ne peut pas se baser sur l'IP d'un Pod.
 
-Les Pods sont **éphémères**, leur IP change à chaque recréation.
-Un batch qui doit joindre une base, un cache Redis ou une API interne ne peut pas se baser sur l'IP d'un Pod.
+<div class="grid grid-cols-[3fr_2fr] gap-6 pt-2">
+<div>
 
-<div class="pt-4 callout-k8s">
+<div class="callout-k8s text-sm">
 
-### Un Service offre
+**Un Service offre**
 
-- une **IP stable** et un **nom DNS stable** au sein du cluster
-- un **routage automatique** vers un ou plusieurs Pods sains
-- du **load balancing** (round-robin) quand N Pods derrière
-- une **mise à jour automatique** quand les Pods changent
+- une **IP stable** + un **nom DNS stable**
+- un **routage auto** vers les Pods sains
+- du **load balancing** round-robin
+- une **mise à jour auto** quand les Pods changent
 
 </div>
 
-<div class="pt-3 callout-warn text-sm">
-⚠️ Si le selector ne matche <strong>aucun</strong> Pod, les <strong>Endpoints</strong> sont vides et tout le trafic échoue (Service orphelin). Vérifier : <code>kubectl get endpoints &lt;svc&gt;</code>.
+<div class="pt-2 text-sm opacity-70">
+☎️ Comme un <strong>standard téléphonique</strong> : le numéro public ne change jamais, même si les postes internes (Pods) sont réaffectés.
+</div>
+
+</div>
+<div>
+
+```mermaid {scale: 0.48}
+flowchart TB
+    cli["client"]:::w --> svc["Service<br/>IP stable"]:::p
+    svc -->|"selector<br/>app=redis"| p1["redis-1"]:::s
+    svc --> p2["redis-2"]:::s
+    svc -.->|recréé| p3["redis-3"]:::s
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+    classDef s fill:#fff,stroke:#c0ccde,color:#5a6378
+```
+
+</div>
+</div>
+
+<div class="pt-2 callout-warn text-xs">
+⚠️ Si le selector ne matche <strong>aucun</strong> Pod, les <strong>Endpoints</strong> sont vides et tout le trafic échoue. Vérifier : <code>kubectl get endpoints &lt;svc&gt;</code>.
 </div>
 
 ---
@@ -2712,7 +2813,7 @@ spec:
 
 - <code>apiVersion: batch/v1</code> (pas <code>v1</code>)
 - <code>spec.template</code> contient un <strong>PodSpec</strong>
-- <code>restartPolicy</code> doit être <code>Never</code> ou <code>OnFailure</code>
+- <code>restartPolicy</code> : <code>Never</code> (échec → <strong>nouveau</strong> Pod, ancien en <code>Error</code>) ou <code>OnFailure</code> (redémarrage <strong>dans le même</strong> Pod)
 
 </div>
 
@@ -2747,6 +2848,43 @@ spec:
 | `activeDeadlineSeconds`     | aucun  |
 | `ttlSecondsAfterFinished`   | aucun  |
 
+</div>
+
+---
+layout: center
+---
+
+# `completions` vs `parallelism`
+
+<div class="grid grid-cols-[2fr_3fr] gap-8 items-center pt-2">
+<div>
+
+```mermaid {scale: 0.55}
+flowchart LR
+    q["File<br/>completions: 10"]:::w
+    q --> s1["slot 1"]:::p
+    q --> s2["slot 2"]:::p
+    q --> s3["slot 3"]:::p
+    s1 --> d["✓ 10 / 10"]:::ok
+    s2 --> d
+    s3 --> d
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+    classDef ok fill:#fff,stroke:#2e9e5b,color:#1d5f38
+```
+
+</div>
+<div>
+
+- **`completions`** = nombre total de succès visés (ici 10)
+- **`parallelism`** = nombre de Pods simultanés (ici 3 slots)
+- Les slots piochent dans la file jusqu'à atteindre le total
+
+<div class="pt-3 callout-k8s text-sm">
+🎫 Analogie : une <strong>pile de tickets</strong> (<code>completions</code>) traitée par <strong>M guichets ouverts</strong> (<code>parallelism</code>).
+</div>
+
+</div>
 </div>
 
 ---
@@ -3405,22 +3543,40 @@ spec:
 
 # 7.4 Le champ concurrencyPolicy
 
-Que faire si l'exécution précédente **n'est pas terminée** quand la prochaine démarre ?
+Que faire si l'exécution précédente **n'est pas terminée** quand la prochaine démarre ? (run de 2 min, schedule de 1 min)
 
-<div class="pt-4">
+<div class="grid grid-cols-[2fr_3fr] gap-6 pt-2 items-center">
+<div>
 
-| Valeur              | Comportement                                        |
-| ------------------- | --------------------------------------------------- |
-| `Allow` (défaut)    | Les deux tournent en parallèle                      |
-| `Forbid`            | On **saute** la nouvelle exécution                  |
-| `Replace`           | On **tue** la précédente et on lance la nouvelle    |
+| Valeur           | Comportement                       |
+| ---------------- | ---------------------------------- |
+| `Allow` (défaut) | Les deux tournent en parallèle     |
+| `Forbid`         | On **saute** la nouvelle           |
+| `Replace`        | On **tue** la précédente           |
 
 </div>
+<div>
 
-<div class="pt-6 callout-warn">
+```mermaid {scale: 0.62}
+gantt
+    dateFormat HH:mm
+    axisFormat %H:%M
+    section Allow
+    run 1 :a1, 00:00, 2m
+    run 2 :a2, 00:01, 2m
+    section Forbid
+    run 1 :f1, 00:00, 2m
+    run 2 sauté :crit, f2, 00:01, 1m
+    section Replace
+    run 1 coupé :crit, r1, 00:00, 1m
+    run 2 :r2, 00:01, 2m
+```
 
+</div>
+</div>
+
+<div class="pt-2 callout-warn text-sm">
 Pour un batch <strong>non idempotent</strong> (écrit en base), choisir <code>Forbid</code>.
-
 </div>
 
 ---
@@ -3913,6 +4069,41 @@ Pour être sûr : <strong>recréer le Pod</strong>.
 </div>
 
 ---
+layout: center
+---
+
+# Injection : env vs volume
+
+<div class="grid grid-cols-[3fr_2fr] gap-8 items-center pt-2">
+<div>
+
+```mermaid {scale: 0.55}
+flowchart LR
+    cm["ConfigMap /<br/>Secret"]:::w
+    cm -->|"env / envFrom"| e["Variables d'env<br/>figées au boot"]:::p
+    cm -->|volume| v["Fichiers montés<br/>rafraîchis ~1 min"]:::ok
+    e --> pod["conteneur"]:::s
+    v --> pod
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef ok fill:#fff,stroke:#2e9e5b,color:#1d5f38
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+    classDef s fill:#fff,stroke:#c0ccde,color:#5a6378
+```
+
+</div>
+<div>
+
+- **env** : lu une fois au démarrage, recréer le Pod pour changer
+- **volume** : fichiers mis à jour à chaud (sauf `subPath`)
+
+<div class="pt-2 callout-warn text-xs">
+⚠️ <code>optional: true</code> sur un <code>...KeyRef</code> : sinon une clé manquante <strong>bloque</strong> le démarrage (<code>CreateContainerConfigError</code>).
+</div>
+
+</div>
+</div>
+
+---
 
 # 8.4 Les Secrets
 
@@ -4328,8 +4519,12 @@ spec:
       emptyDir: {}
 ```
 
-<div class="pt-3 text-sm opacity-70">
+<div class="pt-2 text-sm opacity-70">
 Idéal pour échange entre conteneurs sidecar : producteur écrit, consommateur lit.
+</div>
+
+<div class="pt-1 callout-warn text-xs">
+⚠️ <code>emptyDir</code> vit sur le <strong>disque éphémère du nœud</strong> (compte dans <code>ephemeral-storage</code>) : un scratch trop gros peut déclencher <code>DiskPressure</code> et l'éviction du Pod.
 </div>
 
 ---
@@ -4457,6 +4652,45 @@ flowchart LR
     classDef worker fill:#e7eefc,stroke:#326ce5,color:#1a2038
     classDef pod fill:#ffffff,stroke:#c0ccde,color:#5a6378
 ```
+
+---
+layout: center
+---
+
+# Access modes : RWO vs RWX
+
+<div class="grid grid-cols-[3fr_2fr] gap-8 items-center pt-2">
+<div>
+
+```mermaid {scale: 0.5}
+flowchart TB
+    subgraph n1["nœud 1"]
+        pa["Pod A"]:::p
+        pb["Pod B"]:::p
+    end
+    subgraph n2["nœud 2"]
+        pc["Pod C"]:::p
+    end
+    pa --> v["volume RWO"]:::s
+    pb --> v
+    pc -.->|interdit en RWO| v
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef s fill:#fff,stroke:#c0ccde,color:#5a6378
+```
+
+</div>
+<div>
+
+- **RWO** (ReadWriteOnce) : R/W par les Pods d'**un seul nœud**
+- **ROX** : lecture seule, plusieurs nœuds
+- **RWX** : R/W depuis **plusieurs nœuds** (NFS, CephFS...)
+
+<div class="pt-2 text-sm opacity-70">
+🧳 PVC = le <strong>ticket</strong> que le dev présente ; PV = le <strong>casier</strong> réel géré par l'infra.
+</div>
+
+</div>
+</div>
 
 ---
 
@@ -4669,6 +4903,28 @@ Troubleshooting avancé · **1h**
 | `Evicted`                     | chassé du nœud                  | events du nœud (disque plein ?)              |
 
 ---
+layout: center
+---
+
+# Arbre de décision : par où commencer ?
+
+```mermaid {scale: 0.6}
+flowchart TD
+    s["Pod KO ?"]:::w
+    s --> pending["Pending"]:::p
+    s --> crash["CrashLoopBackOff"]:::p
+    s --> img["ImagePullBackOff"]:::p
+    s --> oom["Exit 137"]:::p
+    pending --> d1["describe → Events<br/>(scheduling, ressources)"]:::s
+    crash --> d2["logs --previous"]:::s
+    img --> d3["describe → Events<br/>(nom, tag, creds)"]:::s
+    oom --> d4["describe → LastState<br/>(OOMKilled → + mémoire)"]:::s
+    classDef p fill:#326ce5,stroke:#2656c8,color:#fff
+    classDef w fill:#e7eefc,stroke:#326ce5,color:#1a2038
+    classDef s fill:#fff,stroke:#c0ccde,color:#5a6378
+```
+
+---
 
 # 10.2 Ressources : requests et limits
 
@@ -4693,11 +4949,8 @@ containers:
 
 </div>
 
-<div class="pt-3 text-sm opacity-70">
-
-Unités : <code>500m</code> = 0.5 vCPU (millicpu) · <code>128Mi</code> = mebibyte (1024 Ko).
-Préférer <code>Mi</code>/<code>Gi</code> à <code>M</code>/<code>G</code>.
-
+<div class="pt-2 callout-k8s text-xs">
+<strong>QoS</strong> : Guaranteed (requests=limits) &gt; Burstable &gt; BestEffort (rien déclaré). Sous pression, BestEffort est évincé en premier. 🍽️ <code>requests</code> = la table réservée, <code>limits</code> = la capacité max de la salle.
 </div>
 
 ---
@@ -5738,6 +5991,10 @@ flowchart TB
 Un Service ClusterIP donne aux batchs une adresse DNS stable : <code>postgres:5432</code>.
 </div>
 
+<div class="pt-2 callout-k8s text-xs">
+💡 En prod réel, une base se gère en <strong>StatefulSet</strong> (identité stable, <code>volumeClaimTemplates</code>). Ici, <code>Deployment + Recreate + RWO</code> suffit pour un mono-réplica de formation.
+</div>
+
 ---
 
 # 12.3 Déploiement Postgres (1/3) - Secret & PVC
@@ -6380,10 +6637,10 @@ Le Deployment maintient `replicas: N` Pods en Running. Si un meurt → recrée. 
 | Suppression d'un Pod      | recrée si `completions` pas atteint | recrée **systématiquement**      |
 | Scaling                   | via `parallelism`                  | via `replicas`                   |
 
-<div class="pt-4 callout-k8s text-sm">
+<div class="pt-3 callout-k8s text-sm">
 
-Un <code>Deployment</code> reste un choix valide <strong>sans accès web</strong>.
-Rien n'empêche un Deployment de ne jamais ouvrir de port : c'est juste un processus qui tourne en continu.
+🧑‍💼 <strong>Job = CDD</strong> (mission ponctuelle qui finit), <strong>Deployment = CDI</strong> (poste permanent, remplacé s'il part).
+<br/>Un <code>Deployment</code> reste valide <strong>sans accès web</strong> : juste un processus qui tourne en continu.
 
 </div>
 
@@ -6854,7 +7111,11 @@ kubectl config set-context --current \
 ```
 
 <div class="callout-k8s text-xs pt-2">
-<strong>Garantie du Deployment</strong> : maintient toujours <code>replicas</code> Pods en Running, peu importe ce qui arrive.
+<strong>Garantie du Deployment</strong> : maintient toujours <code>replicas</code> Pods en Running.
+</div>
+
+<div class="callout-warn text-xs pt-1">
+⚠️ Avec <code>replicas: 2</code>, les 2 workers interrogent la même file et peuvent prendre la <strong>même</strong> tâche (pas de claim atomique). Une vraie queue exige un verrou type <code>SELECT … FOR UPDATE SKIP LOCKED</code>.
 </div>
 
 </div>
@@ -7089,5 +7350,5 @@ Vous avez maintenant une base solide pour :
 </div>
 
 <div class="pt-4 text-xs opacity-60">
-Merci de votre attention · Questions / retours : jean.dupont@example.com
+Merci de votre attention · Questions / retours : chlagoumedhedi@outlook.com
 </div>
