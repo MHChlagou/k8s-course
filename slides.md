@@ -799,6 +799,129 @@ kubectl get pods
 </div>
 
 ---
+layout: default
+---
+
+# 💻 Exercice 2.3 - Impératif vs déclaratif
+
+**Scénario** : créer un objet des deux façons et comprendre pourquoi `apply` est préféré.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+# Impératif : échoue si l'objet existe déjà
+kubectl run nginx --image=nginx:alpine
+kubectl run nginx --image=nginx:alpine
+# Error: pods "nginx" already exists
+
+# Déclaratif : idempotent
+kubectl apply -f pod-hello.yaml
+kubectl apply -f pod-hello.yaml
+# pod/hello-batch unchanged
+
+# Générer un squelette sans rien créer
+kubectl run web --image=nginx:alpine \
+  --dry-run=client -o yaml > web.yaml
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `create` / `run` = **impératif**, échoue si présent
+- `apply` = **déclaratif**, crée ou met à jour
+- `--dry-run=client -o yaml` = générer un manifeste de départ
+
+<div class="callout-k8s text-xs pt-2">
+En production : tout en <code>apply</code> + Git, l'état désiré est versionné.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 2.4 - Inspecter avec describe & explain
+
+**Scénario** : explorer un Pod en cours et découvrir le schéma d'un champ sans aller sur le web.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f pod-hello.yaml
+
+# Détails lisibles + Events
+kubectl describe pod hello-batch
+
+# Schéma d'un champ (OpenAPI)
+kubectl explain pod.spec.containers
+kubectl explain pod.spec.restartPolicy
+```
+
+</div>
+<div>
+
+**À observer**
+
+- Dans `describe` : la section **Events** (planification, pull, démarrage)
+- `explain` lit le schéma depuis l'apiserver (marche **hors ligne**)
+
+<div class="callout-k8s text-xs pt-2">
+Le réflexe <code>explain</code> remplace l'essentiel des allers-retours vers la doc.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 2.5 - Formats de sortie
+
+**Scénario** : extraire exactement l'information voulue avec `-o`.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+# Colonnes étendues (IP, nœud)
+kubectl get pods -o wide
+
+# YAML complet d'un objet
+kubectl get pod hello-batch -o yaml
+
+# Extraction ciblée (sans jq)
+kubectl get pods \
+  -o jsonpath='{.items[*].metadata.name}'
+
+# Tableau sur mesure
+kubectl get pods \
+  -o custom-columns=NOM:.metadata.name,IP:.status.podIP
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `-o wide` : coup d'œil exploitation
+- `-o yaml` / `json` : tout le détail
+- `-o jsonpath` / `custom-columns` : scripts et tableaux maison
+
+<div class="callout-k8s text-xs pt-2">
+<code>jsonpath</code> + <code>--watch</code> = un mini-dashboard sans dépendance.
+</div>
+
+</div>
+</div>
+
+---
 layout: center
 ---
 
@@ -1973,6 +2096,57 @@ kubectl exec pod-long \
 </div>
 
 ---
+layout: default
+---
+
+# 💻 Exercice 4.5 - Logs multi-conteneurs & --previous
+
+**Scénario** : un Pod a 2 conteneurs, l'un crashe en boucle. Cibler le bon conteneur et lire l'instance précédente.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: multi-crash}
+spec:
+  restartPolicy: Always
+  containers:
+    - name: flaky
+      image: alpine:3.19
+      command: ["sh", "-c"]
+      args: ["echo essai; sleep 5; echo boom >&2; exit 1"]
+    - name: sidecar
+      image: alpine:3.19
+      command: ["sh","-c","while true; do echo sidecar OK; sleep 10; done"]
+```
+
+</div>
+<div>
+
+**Actions**
+
+```bash
+kubectl apply -f pod-multi-crash.yaml
+kubectl get pod multi-crash   # CrashLoopBackOff
+
+# Choisir le conteneur (-c obligatoire ici)
+kubectl logs multi-crash -c sidecar
+kubectl logs multi-crash -c flaky
+
+# Lire l'instance qui a crashé
+kubectl logs multi-crash -c flaky --previous
+```
+
+<div class="callout-k8s text-xs pt-1">
+Multi-conteneurs → <code>-c</code> obligatoire. <code>--previous</code> = l'instance d'avant le dernier redémarrage.
+</div>
+
+</div>
+</div>
+
+---
 
 # 4.6 À retenir
 
@@ -2551,6 +2725,86 @@ des changements côté serveur.
 
 </div>
 
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 5.4 - DNS interne
+
+**Scénario** : joindre un Service par son **nom** depuis un Pod, sans connaître son IP (le Service `cache` de l'exercice 5.3 doit exister).
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+# Pod jetable avec des outils réseau
+kubectl run net --rm -it \
+  --image=busybox:1.36 --restart=Never -- sh
+
+# À l'intérieur du Pod :
+nslookup cache
+nslookup cache.formation.svc.cluster.local
+wget -qO- cache:6379 ; echo
+```
+
+</div>
+<div>
+
+**À observer**
+
+- `cache` (nom court) résout dans le **même** namespace
+- FQDN `<svc>.<ns>.svc.cluster.local` pour un autre namespace
+- L'IP renvoyée est celle **stable** du Service
+
+<div class="callout-k8s text-xs pt-2">
+C'est CoreDNS (dans <code>kube-system</code>) qui répond. Plus jamais d'IP en dur.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 5.5 - Annotations & selectors set-based
+
+**Scénario** : enrichir des Pods d'annotations et les filtrer avec des sélecteurs avancés.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f pods-labels.yaml
+
+# Annotation = métadonnée NON filtrable
+kubectl annotate pod batch-finance-1 \
+  owner=equipe-finance
+kubectl get pod batch-finance-1 \
+  -o jsonpath='{.metadata.annotations}'
+
+# Sélecteurs set-based
+kubectl get pods -l 'equipe in (finance,rh)'
+kubectl get pods -l 'criticite!=basse'
+kubectl get pods -l 'env,equipe=finance'
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- **labels** = filtrables (`-l`), **annotations** = descriptives
+- `in (...)`, `!=`, existence (`env`) : sélecteurs set-based
+- La virgule reste un **ET** logique
+
+<div class="callout-k8s text-xs pt-2">
+Les selectors set-based servent aux Services, Deployments, NetworkPolicies...
+</div>
+
+</div>
 </div>
 
 ---
@@ -3785,6 +4039,86 @@ kubectl get jobs,pods
 </div>
 
 ---
+layout: default
+---
+
+# 💻 Exercice 7.4 - Limiter l'historique des Jobs
+
+**Scénario** : un CronJob fréquent accumule des Jobs terminés. Vérifier que `successfulJobsHistoryLimit` fait le ménage.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f cron-horloge.yaml
+# (schedule */1, successfulJobsHistoryLimit: 3)
+
+# Laisser tourner ~5 min, puis :
+kubectl get jobs
+# → seulement les 3 derniers conservés
+
+kubectl describe cronjob horloge \
+  | grep -i "Last Schedule"
+```
+
+</div>
+<div>
+
+**À observer**
+
+- Sans limite, les Jobs terminés **s'accumulent** (objets + Pods)
+- `successfulJobsHistoryLimit` / `failedJobsHistoryLimit` plafonnent
+- Défaut raisonnable : 3 (succès) / 1 (échec)
+
+<div class="callout-warn text-xs pt-2">
+⚠️ Les Jobs ne se nettoient pas seuls : sans limite, des centaines d'objets inutiles.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 7.5 - Fuseau horaire & fréquence
+
+**Scénario** : lire et ajuster la planification d'un CronJob (le fuseau évite les surprises à 2h du matin).
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+# Schedule et fuseau actuels
+kubectl get cronjob horloge \
+  -o jsonpath='{.spec.schedule} | {.spec.timeZone}{"\n"}'
+
+# Passer à toutes les 5 minutes
+kubectl patch cronjob horloge \
+  -p '{"spec":{"schedule":"*/5 * * * *"}}'
+
+# Fixer le fuseau Europe/Paris
+kubectl patch cronjob horloge \
+  -p '{"spec":{"timeZone":"Europe/Paris"}}'
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- 5 champs : `min h jour-mois mois jour-sem`
+- `*/5` = toutes les 5 min
+- Sans `timeZone`, l'évaluation se fait en **UTC**
+
+<div class="callout-k8s text-xs pt-2">
+Tester une expression : <a href="https://crontab.guru">crontab.guru</a>.
+</div>
+
+</div>
+</div>
+
+---
 
 # 7.6 À retenir
 
@@ -4337,6 +4671,84 @@ Les Secrets sont <strong>encodés</strong> (base64), pas <strong>chiffrés</stro
 </div>
 
 ---
+layout: default
+---
+
+# 💻 Exercice 8.4 - envFrom en masse vs clé unique
+
+**Scénario** : injecter toutes les clés d'un ConfigMap d'un coup, et en cibler une seule (renommée).
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl create configmap app-config \
+  --from-literal=LOG_LEVEL=debug \
+  --from-literal=MAX_WORKERS=4 \
+  --from-literal=TIMEOUT=30
+
+kubectl apply -f pod-envfrom.yaml
+kubectl logs lecteur-config
+# LOG_LEVEL=debug
+# MAX_WORKERS=4
+# NIVEAU=debug   ← clé unique renommée
+# TIMEOUT=30
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `envFrom` + `configMapRef` = **toutes** les clés en variables
+- `env` + `configMapKeyRef` = **une** clé précise (renommage possible)
+- Idem avec `secretRef` / `secretKeyRef` pour un Secret
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 8.5 - Mise à jour à chaud (volume)
+
+**Scénario** : un ConfigMap monté en volume se rafraîchit sans recréer le Pod (contrairement aux variables d'env).
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl create configmap live-config \
+  --from-literal=message=v1
+kubectl apply -f pod-config-volume.yaml
+kubectl logs -f config-live      # message = v1
+
+# Modifier le ConfigMap
+kubectl create configmap live-config \
+  --from-literal=message=v2 \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Au bout de ~1 min : les logs passent à v2
+```
+
+</div>
+<div>
+
+**À observer**
+
+- En **volume** : le fichier est mis à jour tout seul (~1 min)
+- En **env** : il aurait fallu **recréer** le Pod
+- À l'appli de **relire** le fichier (ici, la boucle `cat`)
+
+<div class="callout-warn text-xs pt-2">
+⚠️ Un montage en <code>subPath</code> casse ce rafraîchissement auto.
+</div>
+
+</div>
+</div>
+
+---
 layout: center
 ---
 
@@ -4728,6 +5140,116 @@ spec:
           persistentVolumeClaim:
             claimName: resultats-batch
 ```
+
+---
+layout: default
+---
+
+# 💻 Exercice 9.3 - PVC et WaitForFirstConsumer
+
+**Scénario** : un PVC reste `Pending` tant qu'aucun Pod ne l'utilise. L'arrivée d'un consommateur déclenche la création du volume.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f pvc-demo.yaml
+kubectl get pvc demo-pvc
+# STATUS: Pending  (WaitForFirstConsumer)
+kubectl describe pvc demo-pvc | grep -i waiting
+
+# Un consommateur arrive
+kubectl apply -f pod-pvc.yaml
+kubectl get pvc demo-pvc
+# STATUS: Bound
+kubectl get pv          # un PV créé dynamiquement
+```
+
+</div>
+<div>
+
+**À observer**
+
+- `Pending` au début n'est **pas une erreur** : c'est le mode `WaitForFirstConsumer`
+- Le PV n'est provisionné qu'au **moment de l'attachement**
+- Le Pod ne référence que le **PVC**, jamais le PV
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 9.4 - hostPath vs emptyDir
+
+**Scénario** : écrire sur un `hostPath` (disque du nœud) et constater que la donnée survit au Pod, mais reste **liée au nœud**.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f pod-hostpath.yaml
+kubectl logs pod-hostpath        # 1 ligne de date
+
+kubectl delete pod pod-hostpath
+kubectl apply -f pod-hostpath.yaml
+kubectl logs pod-hostpath
+# 2 lignes : la trace précédente est là
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `hostPath` survit au Pod (écrit sur le nœud), `emptyDir` non
+- Mais si le Pod est replanifié sur un **autre nœud**, la donnée est perdue
+
+<div class="callout-warn text-xs pt-2">
+⚠️ `hostPath` à proscrire en prod : pour persister proprement, un **PVC**.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 9.5 - StorageClass & provisioning dynamique
+
+**Scénario** : comprendre qui a créé le PV de l'exercice 9.3.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+# La StorageClass par défaut du cluster kind
+kubectl get storageclass
+
+# Quelle classe utilise notre PVC ?
+kubectl get pvc demo-pvc \
+  -o jsonpath='{.spec.storageClassName}{"\n"}'
+
+# Le PV créé automatiquement et son provisionneur
+kubectl get pv
+kubectl describe pv $(kubectl get pv \
+  -o jsonpath='{.items[0].metadata.name}') \
+  | grep -i provisioner
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- **Dynamique** : le PV est créé à la demande via la `StorageClass`
+- **Statique** : un admin pré-crée les PV à la main
+- Sur kind : `standard` (`rancher.io/local-path`), `Delete`
+
+</div>
+</div>
 
 ---
 
@@ -5218,6 +5740,78 @@ exit
 <div class="callout-k8s text-xs pt-1">
 Cet exercice simule ce que vous ferez en production quand un batch se comporte bizarrement : <code>exec</code> est votre meilleur ami pour l'investigation à chaud.
 </div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 10.4 - Pod Pending : FailedScheduling
+
+**Scénario** : un Pod demande des ressources qu'aucun nœud ne peut offrir. Lire l'événement et corriger.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f pod-impossible.yaml
+kubectl get pod pod-impossible
+# STATUS: Pending (ne bouge pas)
+
+kubectl describe pod pod-impossible \
+  | grep -A2 Events
+# FailedScheduling: Insufficient cpu,
+#                   Insufficient memory
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `Pending` persistant → **toujours** lire les Events du `describe`
+- `FailedScheduling: Insufficient ...` = `requests` trop hautes
+- Corriger : baisser les `requests`, ajouter un nœud, ou libérer des ressources
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 10.5 - Service sans Endpoints
+
+**Scénario** : un Service au selector erroné ne route vers aucun Pod. Le diagnostiquer via `get endpoints`.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```bash
+kubectl apply -f svc-orphelin.yaml
+kubectl get endpoints web
+# ENDPOINTS: <none>   ← personne derrière !
+
+# Côté client : connection refused
+kubectl run t --rm -it --image=busybox:1.36 \
+  --restart=Never -- wget -qO- --timeout=3 web
+
+# Corriger le selector (app: web)
+kubectl patch service web \
+  -p '{"spec":{"selector":{"app":"web"}}}'
+kubectl get endpoints web        # une IP apparaît
+```
+
+</div>
+<div>
+
+**À retenir**
+
+- `Connection refused` / timeout sur un Service → vérifier `get endpoints`
+- `<none>` = selector qui ne matche **rien**, ou Pods non `Ready`
+- C'est LE premier réflexe sur un problème de routage
 
 </div>
 </div>
