@@ -593,7 +593,7 @@ kubectl config set-context --current \
 | `create`    | créer un objet (impératif)                                    |
 | **`apply`** | créer OU mettre à jour depuis fichier (**à privilégier**)     |
 | `delete`    | supprimer                                                     |
-| `logs`      | lire les logs d'un conteneur                                  |
+| `logs`      | lire les logs (`-f` pour suivre en direct)                    |
 | `exec`      | exécuter une commande dans un conteneur                       |
 | `edit`      | éditer un objet en direct (`$EDITOR`)                         |
 | `explain`   | obtenir la doc d'un champ YAML                                |
@@ -606,12 +606,13 @@ kubectl config set-context --current \
 
 # 2.4 Formats de sortie
 
-```bash {all|1|2|3|4|5|all}
+```bash {all|1|2|3|4|5|6|all}
 kubectl get pods                                    # format par défaut
 kubectl get pods -o wide                            # + IP, nœud
 kubectl get pod mon-pod -o yaml                     # YAML complet
 kubectl get pod mon-pod -o json                     # JSON
 kubectl get pods -o jsonpath='{.items[*].metadata.name}'  # extraction ciblée
+kubectl run web --image=nginx --dry-run=client -o yaml    # générer un manifeste
 ```
 
 <div class="pt-4 callout-k8s">
@@ -882,7 +883,7 @@ Ce n'est **PAS** un conteneur : c'est un **groupe de 1+ conteneurs** qui :
 
 <div class="pt-4">
 
-- partagent le même **réseau** (même IP, mêmes ports)
+- partagent le même **réseau** (même IP, mêmes ports) ; cette IP est **éphémère**, elle change à chaque recréation
 - partagent les mêmes **volumes**
 - sont toujours schedulés sur le **même nœud**
 - naissent et meurent **ensemble**
@@ -1224,6 +1225,128 @@ Pourquoi faut-il supprimer avant de réappliquer ?
 
 <div class="callout-k8s text-xs pt-1">
 Un Pod est largement immutable. Beaucoup de champs (dont <code>env</code>) ne peuvent pas être modifiés à chaud. Pour modifier : on supprime + on recrée.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 3.5 - Préparer avec un initContainer
+
+**Scénario** : un `initContainer` prépare le terrain (fichier de config) avant le conteneur principal.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: batch-avec-init, labels: {app: formation, type: batch}}
+spec:
+  restartPolicy: Never
+  initContainers:
+    - name: preparation
+      image: alpine:3.19
+      command: ["sh", "-c"]
+      args: ["echo '[init] prepare'; sleep 3; echo client=ACME > /data/config.txt"]
+      volumeMounts: [{name: data, mountPath: /data}]
+  containers:
+    - name: worker
+      image: alpine:3.19
+      command: ["sh", "-c"]
+      args: ["echo '[main] config :'; cat /data/config.txt"]
+      volumeMounts: [{name: data, mountPath: /data}]
+  volumes:
+    - {name: data, emptyDir: {}}
+```
+
+</div>
+<div>
+
+**Actions**
+
+```bash
+kubectl apply -f pod-init.yaml
+kubectl get pod batch-avec-init -w
+# Init:0/1 → PodInitializing → Completed
+```
+
+**Observer la séquence**
+
+```bash
+# Logs de l'init seul (option -c)
+kubectl logs batch-avec-init -c preparation
+
+# Logs du conteneur principal
+kubectl logs batch-avec-init
+# → [main] config : client=ACME
+```
+
+<div class="pt-2 callout-k8s text-xs">
+L'<code>initContainer</code> s'exécute <strong>jusqu'au succès</strong> avant le conteneur principal. S'il échoue, le Pod reste bloqué en <code>Init:Error</code> et le worker ne démarre jamais.
+</div>
+
+</div>
+</div>
+
+---
+layout: default
+---
+
+# 💻 Exercice 3.6 - Sondes liveness & readiness
+
+**Scénario** : le conteneur crée un fichier de santé, puis le supprime après 30 s. Les deux sondes le surveillent : on observe le passage **NotReady** puis le **redémarrage**.
+
+<div class="ex-grid grid grid-cols-[3fr_2fr] gap-4 pt-2">
+<div>
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: {name: pod-probes, labels: {app: formation}}
+spec:
+  containers:
+    - name: app
+      image: alpine:3.19
+      command: ["sh", "-c"]
+      args: ["touch /tmp/ok; sleep 30; rm /tmp/ok; sleep 600"]
+      readinessProbe:
+        exec: {command: ["cat", "/tmp/ok"]}
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        failureThreshold: 1
+      livenessProbe:
+        exec: {command: ["cat", "/tmp/ok"]}
+        initialDelaySeconds: 10
+        periodSeconds: 5
+```
+
+</div>
+<div>
+
+**Actions**
+
+```bash
+kubectl apply -f pod-probes.yaml
+kubectl get pod pod-probes -w
+```
+
+**Ce que l'on observe**
+
+```bash
+# 0/1 → 1/1 : readiness OK
+# ~30s : le fichier disparaît
+# 0/1 : readiness échoue (NotReady)
+# RESTARTS +1 : liveness redémarre
+kubectl describe pod pod-probes \
+  | grep -iE 'Unhealthy|Liveness|Readiness'
+```
+
+<div class="pt-2 callout-k8s text-xs">
+<strong>readiness</strong> = reçoit-il du trafic ? (retiré des Endpoints si KO). <strong>liveness</strong> = est-il vivant ? (conteneur redémarré si KO).
 </div>
 
 </div>
@@ -1795,9 +1918,14 @@ kubectl exec pod-long \
 kubectl get events \
   --sort-by=.lastTimestamp
 
-# Pods en échec seulement
-kubectl get pods \
-  --field-selector=status.phase=Failed
+# Conso CPU/RAM (metrics-server)
+kubectl top pods
+
+# Copier un fichier hors du Pod
+kubectl cp mon-pod:/data/x.csv ./x.csv
+
+# Conteneur éphémère (image sans shell)
+kubectl debug mon-pod -it --image=busybox
 ```
 
 </div>
@@ -1976,6 +2104,10 @@ passez-le à <code>kubectl apply -n</code>. Les manifests restent portables.
 
 </div>
 
+<div class="pt-2 callout-warn text-xs">
+⚠️ Un namespace n'isole <strong>pas</strong> le réseau : les Pods communiquent entre namespaces. Cloisonner le trafic nécessite des <strong>NetworkPolicies</strong>.
+</div>
+
 ---
 
 # 5.2 Les Labels
@@ -2072,6 +2204,10 @@ Un batch qui doit joindre une base, un cache Redis ou une API interne ne peut pa
 - du **load balancing** (round-robin) quand N Pods derrière
 - une **mise à jour automatique** quand les Pods changent
 
+</div>
+
+<div class="pt-3 callout-warn text-sm">
+⚠️ Si le selector ne matche <strong>aucun</strong> Pod, les <strong>Endpoints</strong> sont vides et tout le trafic échoue (Service orphelin). Vérifier : <code>kubectl get endpoints &lt;svc&gt;</code>.
 </div>
 
 ---
@@ -2266,6 +2402,13 @@ layout: default
 # 💻 Exercice 5.3 - Redis derrière un Service
 
 **Objectif** : 2 Pods Redis (label `app: cache`) + 1 Service ClusterIP devant.
+
+```bash
+# Créer les 2 Pods Redis (app=cache) + le Service ClusterIP "cache"
+kubectl run redis-1 --image=redis:7-alpine -l app=cache
+kubectl run redis-2 --image=redis:7-alpine -l app=cache
+kubectl expose pod redis-1 --name=cache --port=6379 --selector=app=cache
+```
 
 <div class="grid grid-cols-2 gap-4 pt-3 text-sm">
 
@@ -2584,6 +2727,7 @@ spec:
   backoffLimit: 4             # nb max de retries
   activeDeadlineSeconds: 600  # timeout global
   ttlSecondsAfterFinished: 300  # suppression auto 5 min après la fin
+  suspend: false              # passer à true pour mettre le Job en pause
   template:
     spec:
       restartPolicy: OnFailure
@@ -3243,7 +3387,7 @@ spec:
   concurrencyPolicy: Forbid           # Allow | Forbid | Replace
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 1
-  startingDeadlineSeconds: 120
+  startingDeadlineSeconds: 120         # délai max pour rattraper un run manqué
   suspend: false                       # true = mettre en pause
   jobTemplate:
     spec:
@@ -3793,7 +3937,7 @@ stringData:                    # stringData = en clair, K8s encode
 - Valeurs encodées **base64** (⚠️ **pas du chiffrement**)
 - Montés en **tmpfs** dans le Pod
 - **Non affichés** par `kubectl describe`
-- Non loggés par défaut
+- Type `docker-registry` (+ `imagePullSecrets`) pour un **registre privé**
 
 </div>
 
@@ -3809,11 +3953,11 @@ stringData:                    # stringData = en clair, K8s encode
 | Monté en tmpfs           | non                | **oui**                          |
 | Affiché par `describe`   | oui                | **non**                          |
 | Syntaxe texte            | `data:`            | `stringData:` ou `data:` (b64)   |
+| Limites & options        | ~1 Mo ; `immutable: true` fige + allège l'apiserver | idem |
 
-<div class="pt-4 callout-warn text-sm">
+<div class="pt-3 callout-warn text-xs">
 
-🔐 Pour vraiment chiffrer les Secrets dans etcd : activer l'<strong>encryption at rest</strong>.
-Sinon : <strong>HashiCorp Vault</strong>, <strong>Sealed Secrets</strong>, <strong>External Secrets Operator</strong>.
+🔐 Chiffrer réellement les Secrets dans etcd : activer l'<strong>encryption at rest</strong> (ou Vault, Sealed Secrets).
 
 </div>
 
@@ -4285,6 +4429,8 @@ NFS, disque cloud (EBS, PD, Disk), Ceph…
 
 Souvent créé dynamiquement par une **StorageClass**.
 
+À sa libération, `reclaimPolicy` : `Delete` (efface le volume) ou `Retain` (conserve).
+
 </div>
 
 <div>
@@ -4294,6 +4440,8 @@ Souvent créé dynamiquement par une **StorageClass**.
 Une **demande** d'espace par l'application.
 
 Kubernetes lie le PVC à un PV compatible.
+
+Reste `Pending` jusqu'au 1er Pod consommateur (`WaitForFirstConsumer`).
 
 </div>
 
