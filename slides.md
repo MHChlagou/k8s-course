@@ -917,7 +917,7 @@ Un Pod passe par plusieurs **phases** (champ `status.phase`) :
 <div class="pt-4 callout-k8s text-sm">
 
 Pour les batchs, les phases finales intéressantes sont <strong>Succeeded</strong> et <strong>Failed</strong>.
-On va apprendre à les interpréter.
+Attention : <code>kubectl get pods</code> affiche <code>Completed</code> (phase <code>Succeeded</code>) et <code>Error</code> (phase <code>Failed</code>) dans la colonne STATUS.
 
 </div>
 
