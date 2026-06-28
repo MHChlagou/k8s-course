@@ -394,7 +394,7 @@ layout: default
 
 **Prérequis** : `docker`, `kind` (≥ 0.20) et `kubectl` installés.
 
-**1. Décrire le cluster** — `kind-config.yaml`
+**1. Décrire le cluster** : `kind-config.yaml`
 
 ```yaml
 kind: Cluster
@@ -459,7 +459,7 @@ kubectl config set-context --current \
   --namespace=formation
 ```
 
-**Métriques — optionnel, pour `kubectl top`**
+**Métriques (optionnel), pour `kubectl top`**
 
 ```bash
 kubectl apply -f https://github.com/kubernetes-sigs/\
@@ -487,7 +487,7 @@ kubectl -n kube-system patch deploy metrics-server \
 
 <div class="callout-warn text-sm pt-3">
 
-**Fin de formation** — tout jeter :
+**Fin de formation**, tout jeter :
 `kind delete cluster --name formation`
 
 `metrics-server` met ~1 min ; sans lui, `kubectl top` renvoie une erreur : c'est **normal**.
